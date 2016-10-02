@@ -202,7 +202,7 @@ function UpdateWaitTimer (timerName)
 	if page_built then
 	
 		EnableTimer("TNQTimer")
-		if (questInfo.action == 'status' or questInfo.action == 'comp' or questInfo.action == 'fail') then
+		if (questInfo.action == 'comp' or questInfo.action == 'fail' or questInfo.wait ~= nil) then
 			local TNQ = (timeOfNextQuest - os.time() ) / 60
 		
 			questInfoDisplay = {}
@@ -211,7 +211,7 @@ function UpdateWaitTimer (timerName)
 			
 			GetWindowSize()
 			SetUpHotspotsAndDraw()
-		elseif questInfo.action == 'start' then
+		elseif (questInfo.action == 'start' or questInfo.timer ~= nil) then
 			local TimeToComplete = (timeOfQuestEnd - os.time()) / 60
 			
 			questInfoDisplay = {}
@@ -223,21 +223,25 @@ function UpdateWaitTimer (timerName)
 			SetUpHotspotsAndDraw()
 		end
 	end
-		
 end -- UpdateWaitTimer
 
 function BuildQuestInfo (questInfo)
 	questInfoDisplay = {}
-	if questInfo.action == 'ready' then
+	print ('start of qI debug..')
+	for i, v in pairs (questInfo) do
+		print (i .. ' ' .. v)
+	end
+	print ('end of qi debug')
+	if questInfo.action == 'ready' or  questInfo.status == 'ready' then
 		-- You can now quest again
 		table.insert(questInfoDisplay, {label="Q: ", info="You can now quest again.", colour=0xffffff})
-	elseif questInfo.action == 'start' then
+	elseif questInfo.action == 'start' or questInfo.timer ~= nil then
 		timeOfQuestEnd =  os.time() + questInfo.timer * 60
 		table.insert(questInfoDisplay, {label="Target    : ", info=questInfo.targ, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Area      : ", info=questInfo.area, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Room      : ", info=questInfo.room, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Time Left : ", info=questInfo.timer, colour=0xffffff})
-	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.action == 'status' then
+	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.wait ~= nil then
 		timeOfNextQuest = os.time() + questInfo.wait * 60
 		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
 		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.wait .. " min", colour=0xffffff})
@@ -347,7 +351,6 @@ end -- OnPluginEnable
 
 
 function OnPluginConnect ()
-	print("connected?")
 	WindowShow( win, true)
 
 	Send_GMCP_Packet("request quest")
