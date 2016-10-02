@@ -15,6 +15,7 @@
    date_written="2016-10-01 14:38:24"
    requires="5.01"
    version="1.0"
+   save_state="y"
    >
 
 </plugin>
@@ -77,6 +78,19 @@ ColourNote ("white", "green", "Added trigger to match on '%1', sending '%2'")
   </alias>
 </aliases>
 
+
+<timers>
+  <timer
+   name="TNQTimer"
+   script="UpdateWaitTimer"
+   enabled="y"
+   minute="1"
+   at_time="n"
+   >
+  </timer>
+
+</timers>
+
 <!--  Scripts  -->
 
 <script>
@@ -126,21 +140,21 @@ function SetUpHotspotsAndDraw(firstTime)
 			background_colour) )                
 
 		WindowShow (win, true)
-	else
-		-- everything has already been made
-		-- just move them back into place
-		if winWidth < MIN_WIDTH then
-			width  = MIN_WIDTH
-		else
-			width = winWidth
-		end
-		if winHeight < MIN_HEIGHT then
-			height  = MIN_HEIGHT
-		else
-			height = winHeight
-		end
-		WindowResize(win, width, height, background_colour)
 	end
+	
+	-- resize window
+	if contentWidth < MIN_WIDTH then
+		width  = MIN_WIDTH
+	else
+		width = contentWidth
+	end
+	if contentHeight < MIN_HEIGHT then
+		height  = MIN_HEIGHT
+	else
+		height = contentHeight
+	end
+	WindowResize(win, width, height, background_colour)
+	
 	-- Add the drag handler so they can move the window around
 	movewindow.add_drag_handler (win, 0, 0, 0, 0)
 	DrawWindow()
@@ -159,7 +173,6 @@ function DrawWindow()
 		left = LEFT_MARGIN + WindowText(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, TOP_MARGIN, 0, 0, font_colour)
 	end
 
-	--WindowResize(win, width, height, background_colour)
 	
 	-- draw edge frame.
 	WindowRectOp (win, 1, 0, 0, 0, 0, border_colour, 15)
@@ -168,44 +181,50 @@ function DrawWindow()
 end
 
 function GetWindowSize()
-	winHeight = TOP_MARGIN * 2
-	winWidth = 0
+	contentHeight = TOP_MARGIN * 2
+	contentWidth = 0
 	if page_built then
 		for i, v in ipairs(questInfoDisplay) do
 			top = TOP_MARGIN + (i-1) * line_height
 			left = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, v.label, left, top, 0, 0, font_colour) + WindowTextWidth(win, font_id, v.info, left, top, 0, 0, font_colour)
-			winHeight = winHeight + line_height
-			if left N > winWidth then
-				winWidth = left
+			contentHeight = contentHeight + line_height
+			if left > contentWidth then
+				contentWidth = left
 			end
 		end
 	else
-		winWidth = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, TOP_MARGIN, 0, 0, font_colour)
-		winHeight = TOP_MARGIN * 2 + line_height
+		contentWidth = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, TOP_MARGIN, 0, 0, font_colour)
+		contentHeight = TOP_MARGIN * 2 + line_height
 	end
 end -- GetWindowSize
 
-waitTimer = 0
-lastQuestWaitReceivedTime = os.clock()
-function setQuestTimer()
-	waitTimer = questInfo.wait
-	lastQuestWaitReceived = os.clock()
-	updateWaitDisplay()
-
-end -- setQuestTimer
-
-function updateWaitDisplay()
-	questInfoDisplay = {}
-	if questInfo.action == 'status' then
-		local tnq = waitTimer - (os.clock() - lastQuestWaitReceived) / 60
-		
-		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TTNQ   : ", info=string.format("%d", tnq) .. " min", colour=0xffffff})
-		
-		DrawWindow()
+function UpdateWaitTimer (timerName)
+	if page_built then
 	
+		EnableTimer("TNQTimer")
+		if (questInfo.action == 'status' or questInfo.action == 'comp' or questInfo.action == 'fail') then
+			local TNQ = (timeOfNextQuest - os.time() ) / 60
+		
+			questInfoDisplay = {}
+			table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
+			table.insert(questInfoDisplay, {label="TNQ    : ", info=string.format("%d", TNQ) .. " min", colour=0xffffff})
+			
+			GetWindowSize()
+			SetUpHotspotsAndDraw()
+		elseif questInfo.action == 'start' then
+			local TimeToComplete = (timeOfQuestEnd - os.time()) / 60
+			
+			questInfoDisplay = {}
+			table.insert(questInfoDisplay, {label="Target    : ", info=questInfo.targ, colour=0xffffff})
+			table.insert(questInfoDisplay, {label="Area      : ", info=questInfo.area, colour=0xffffff})
+			table.insert(questInfoDisplay, {label="Room      : ", info=questInfo.room, colour=0xffffff})
+			table.insert(questInfoDisplay, {label="Time Left : ", info=string.format("%d", TimeToComplete) .. " min", colour=0xffffff})
+			GetWindowSize()
+			SetUpHotspotsAndDraw()
+		end
 	end
-end -- updateWaitDisplay
+		
+end -- UpdateWaitTimer
 
 function BuildQuestInfo (questInfo)
 	questInfoDisplay = {}
@@ -213,17 +232,15 @@ function BuildQuestInfo (questInfo)
 		-- You can now quest again
 		table.insert(questInfoDisplay, {label="Q: ", info="You can now quest again.", colour=0xffffff})
 	elseif questInfo.action == 'start' then
+		timeOfQuestEnd =  os.time() + questInfo.timer * 60
 		table.insert(questInfoDisplay, {label="Target    : ", info=questInfo.targ, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Area      : ", info=questInfo.area, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Room      : ", info=questInfo.room, colour=0xffffff})
 		table.insert(questInfoDisplay, {label="Time Left : ", info=questInfo.timer, colour=0xffffff})
-	elseif questInfo.action == 'fail' then
-		-- table.insert(questInfoDisplay, "You have failed the quest")
-	elseif questInfo.action == 'comp' then
-		table.insert(questInfoDisplay, {label="TTNQ:    ", info=questInfo.wait, colour=0xffffff})
-		table.insert(questInfoDisplay, {label="Last Quest:", info="", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="QP:   ", info=questInfo.totqp, colour=0xffffff})
-		table.insert(questInfoDisplay, {label="Gold: ", info=questInfo.gold, colour=0xffffff})
+	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.action == 'status' then
+		timeOfNextQuest = os.time() + questInfo.wait * 60
+		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
+		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.wait .. " min", colour=0xffffff})
 		-- questInfo.qp
 		-- questInfo.tierqp
 		-- questInfo.pracs
@@ -237,19 +254,17 @@ function BuildQuestInfo (questInfo)
 		-- questInfo.completed
 		-- questInfo.wait
 	elseif questInfo.action == 'timeout' then
-		-- ran out of time
+		-- time out?
 		-- questInfo.wait
 	elseif questInfo.action == 'killed' then
 		table.insert(questInfoDisplay, {label="Your Quest Target is Killed.", info="", colour=0xff0000})
+		table.insert(questInfoDisplay, {label="Return to the Quest Master.", info="", colour=0xff0000})
 		table.insert(questInfoDisplay, {label="Time Left:  ", info=questInfo.time})
 		-- questInfo.time
 	elseif questInfo.action == 'warning' then
 		-- questInfo.time
 	elseif questInfo.action == 'reset' then
 		-- questInfo.time
-	elseif questInfo.action == 'status' then
-		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TTNQ   : ", info=tostring(questInfo.wait) .. " min", colour=0xffffff})
 	end
 	page_built = true
 	GetWindowSize()
@@ -268,10 +283,10 @@ function OnPluginBroadcast (msg, id, name, text)
 			end
 			--]]
 		end
-	end	
+	end
 end -- OnPluginBroadcast
 
--- other boilerplates
+-- callbacks
 
 function OnPluginInstall ()
 	-- make window so I can grab the font info
@@ -304,6 +319,7 @@ function OnPluginInstall ()
 	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=default_x, y=default_y})
 
 	--- Setup the window.
+	GetWindowSize()
 	SetUpHotspotsAndDraw(true)
 
 	if IsConnected() then
@@ -321,18 +337,20 @@ function OnPluginClose ()
 end -- OnPluginClose
 
 function OnPluginEnable ()
-	ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+	WindowShow( win, true)
 
 	if IsConnected() then
-		-- CallPlugin("3e7dedbe37e44942dd46d264","Send_GMCP_Packet","request quest")
 		Send_GMCP_Packet("request quest")
 	end
-	WindowShow( win, true)
 
 end -- OnPluginEnable
 
 
 function OnPluginConnect ()
+	print("connected?")
+	WindowShow( win, true)
+
+	Send_GMCP_Packet("request quest")
 
 end -- function OnPluginConnect
 
