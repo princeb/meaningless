@@ -23,61 +23,6 @@
 
 <include name="constants.lua"/>
 
-<!--  Aliases  -->
-
-<aliases>
-  <alias
-   match="#alias {*} {*}"
-   enabled="y"
-   group="special_convenience_aliases"
-   send_to="12"
-   ignore_case="y"
-   sequence="100"
-  >
-  <send>require "addxml"  -- addxml extension
-
--- add the alias
-
-addxml.alias {
-  name = "command_line_alias_" .. string.gsub(Base64Encode("%1"), "=", ""), 
-  match = "%1",
-  send = "%2",
-  sequence = 100,
-  enabled = true,
-  send_to = 10,
-  group = "command_line_aliases"
-             }
-
-ColourNote ("white", "green", "Added alias to match on '%1', sending '%2'")
-  </send>
-  </alias>
-  <alias
-   match="#trigger {*} {*}"
-   enabled="y"
-   group="special_convenience_aliases"
-   send_to="12"
-   ignore_case="y"
-   sequence="100"
-  >
-  <send>require "addxml"  -- addxml extension
-
--- add the trigger 
-
-addxml.trigger {
-  name = "command_line_trigger_" .. string.gsub(Base64Encode("%1"), "=", ""), 
-  match = "%1", 
-  send = "%2",
-  sequence = 100,
-  enabled = true,
-  send_to = 10,
-  group = "command_line_triggers"
-               }
-
-ColourNote ("white", "green", "Added trigger to match on '%1', sending '%2'")
-  </send>
-  </alias>
-</aliases>
-
 
 <timers>
   <timer
@@ -113,8 +58,6 @@ default_x             = 50
 default_y             = 250
 MIN_WIDTH			  = 10
 MIN_HEIGHT			  = 10
-RESIZE_TAG_SIZE = 10
-MIN_SIZE        = 100
 LEFT_MARGIN     = 10
 TOP_MARGIN      = 5
 default_font_size = 9
@@ -227,11 +170,7 @@ end -- UpdateWaitTimer
 
 function BuildQuestInfo (questInfo)
 	questInfoDisplay = {}
-	print ('start of qI debug..')
-	for i, v in pairs (questInfo) do
-		print (i .. ' ' .. v)
-	end
-	print ('end of qi debug')
+	
 	if questInfo.action == 'ready' or  questInfo.status == 'ready' then
 		-- You can now quest again
 		table.insert(questInfoDisplay, {label="Q: ", info="You can now quest again.", colour=0xffffff})
