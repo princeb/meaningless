@@ -183,7 +183,7 @@ function BuildQuestInfo (questInfo)
 	elseif questInfo.action == 'reset' or questInfo.timer ~= nil then
 		timeOfNextQuest = os.time() + questInfo.timer * 60
 		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.wait .. " min", colour=0xffffff})
+		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.timer .. " min", colour=0xffffff})
 	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.wait ~= nil then
 		timeOfNextQuest = os.time() + questInfo.wait * 60
 		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
