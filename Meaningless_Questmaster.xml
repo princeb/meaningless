@@ -120,7 +120,7 @@ function OnPluginListChanged ()
 	do_plugin_check_now ("462b665ecb569efbf261422f", "aard_miniwindow_z_order_monitor") -- check we have z order plugin
 end
 
-function DrawWindow(firstTime)
+function DrawWindow()
 
 	-- get window size
 	contentHeight = TOP_MARGIN * 2
@@ -138,17 +138,6 @@ function DrawWindow(firstTime)
 		contentHeight = TOP_MARGIN * 2 + line_height
 	end
 	
-	if (firstTime == true) then
-		check (WindowCreate (win, 
-			windowinfo.window_left, windowinfo.window_top,   -- left, top (auto-positions)
-			width,     -- width
-			height,  -- height
-			windowinfo.window_mode,       -- auto-position: middle right
-			windowinfo.window_flags,  -- flags
-			background_colour) )                
-
-		WindowShow (win, true)
-	end
 	
 	-- resize window
 	width = math.max(contentWidth, MIN_WIDTH)
@@ -309,16 +298,26 @@ function OnPluginInstall ()
 	max_height = (line_height*(((stacked == 1) and 12) or 23))+(TOP_MARGIN+1)
 
 	--- Pull some state variables.
-	background_colour = tonumber (GetVariable ("background_colour")) or background_colour
-	height = tonumber (GetVariable ("height")) or default_height
+	background_colour = tonumber(GetVariable ("background_colour")) or background_colour
+	height = tonumber(GetVariable ("height")) or default_height
 	orig_height = height
-	width = tonumber (GetVariable ("width")) or default_width
+	width = tonumber(GetVariable ("width")) or default_width
 
 	--- install the window movement handler, get back the window position.
 	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=default_x, y=default_y})
 
 	--- Setup the window.
-	DrawWindow(true)
+	
+	check(WindowCreate(win, 
+		windowinfo.window_left, windowinfo.window_top,
+		width, height,
+		windowinfo.window_mode,
+		windowinfo.window_flags,
+		background_colour))
+
+	WindowShow(win, true)
+	
+	DrawWindow()
 
 	if IsConnected() then
 		Send_GMCP_Packet("request quest")
