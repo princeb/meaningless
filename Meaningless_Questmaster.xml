@@ -120,8 +120,24 @@ function OnPluginListChanged ()
 	do_plugin_check_now ("462b665ecb569efbf261422f", "aard_miniwindow_z_order_monitor") -- check we have z order plugin
 end
 
+function DrawWindow(firstTime)
 
-function SetUpHotspotsAndDraw(firstTime)
+	-- get window size
+	contentHeight = TOP_MARGIN * 2
+	contentWidth = 0
+	if page_built then
+		for i, v in ipairs(questInfoDisplay) do
+			top = TOP_MARGIN + (i-1) * line_height
+			left = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, v.label, left, top, 0, 0, font_colour) + WindowTextWidth(win, font_id, v.info, left, top, 0, 0, font_colour)
+			contentHeight = contentHeight + line_height
+			contentWidth = math.max(contentWidth, left)
+			
+		end
+	else
+		contentWidth = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, TOP_MARGIN, 0, 0, font_colour)
+		contentHeight = TOP_MARGIN * 2 + line_height
+	end
+	
 	if (firstTime == true) then
 		check (WindowCreate (win, 
 			windowinfo.window_left, windowinfo.window_top,   -- left, top (auto-positions)
@@ -135,25 +151,15 @@ function SetUpHotspotsAndDraw(firstTime)
 	end
 	
 	-- resize window
-	if contentWidth < MIN_WIDTH then
-		width  = MIN_WIDTH
-	else
-		width = contentWidth
-	end
-	if contentHeight < MIN_HEIGHT then
-		height  = MIN_HEIGHT
-	else
-		height = contentHeight
-	end
+	width = math.max(contentWidth, MIN_WIDTH)
+	height = math.max(contentHeight, MIN_HEIGHT)
+	
 	WindowResize(win, width, height, background_colour)
 	
 	-- Add the drag handler so they can move the window around
 	movewindow.add_drag_handler (win, 0, 0, 0, 0)
-	DrawWindow()
-end
-
-function DrawWindow()
 	WindowRectOp(win, 2, 0, 0, 0, 0, background_colour) -- blank 
+	
 	if page_built then
 		for i, v in ipairs(questInfoDisplay) do
 			top = TOP_MARGIN + (i-1) * line_height
@@ -172,47 +178,28 @@ function DrawWindow()
 	BroadcastPlugin (999, "repaint")
 end
 
-function GetWindowSize()
-	contentHeight = TOP_MARGIN * 2
-	contentWidth = 0
-	if page_built then
-		for i, v in ipairs(questInfoDisplay) do
-			top = TOP_MARGIN + (i-1) * line_height
-			left = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, v.label, left, top, 0, 0, font_colour) + WindowTextWidth(win, font_id, v.info, left, top, 0, 0, font_colour)
-			contentHeight = contentHeight + line_height
-			if left > contentWidth then
-				contentWidth = left
-			end
-		end
-	else
-		contentWidth = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, TOP_MARGIN, 0, 0, font_colour)
-		contentHeight = TOP_MARGIN * 2 + line_height
-	end
-end -- GetWindowSize
 
 function UpdateWaitTimer (timerName)
 	if page_built then
 	
 		EnableTimer("TNQTimer")
 		if (questInfo.action == 'comp' or questInfo.action == 'fail' or questInfo.wait ~= nil) then
-			local TNQ = (timeOfNextQuest - os.time() ) / 60
-		
 			questInfoDisplay = {}
+			local TNQ = math.ceil((timeOfNextQuest - os.time() ) / 60)
+		
 			table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
 			table.insert(questInfoDisplay, {label="TNQ    : ", info=string.format("%d", TNQ) .. " min", colour=0xffffff})
+			DrawWindow()
 			
-			GetWindowSize()
-			SetUpHotspotsAndDraw()
 		elseif (questInfo.action == 'start' or questInfo.timer ~= nil) then
+			questInfoDisplay = {}
 			local TimeToComplete = (timeOfQuestEnd - os.time()) / 60
 			
-			questInfoDisplay = {}
 			table.insert(questInfoDisplay, {label="Target    : ", info=questInfo.targ, colour=0xffffff})
 			table.insert(questInfoDisplay, {label="Area      : ", info=questInfo.area, colour=0xffffff})
 			table.insert(questInfoDisplay, {label="Room      : ", info=questInfo.room, colour=0xffffff})
 			table.insert(questInfoDisplay, {label="Time Left : ", info=string.format("%d", TimeToComplete) .. " min", colour=0xffffff})
-			GetWindowSize()
-			SetUpHotspotsAndDraw()
+			DrawWindow()
 		end
 	end
 end -- UpdateWaitTimer
@@ -248,8 +235,7 @@ function BuildQuestInfo (questInfo)
 
 	end
 	page_built = true
-	GetWindowSize()
-	SetUpHotspotsAndDraw()
+	DrawWindow()
 end -- CreateQuestMW
 
 function OnPluginBroadcast (msg, id, name, text)
@@ -258,11 +244,6 @@ function OnPluginBroadcast (msg, id, name, text)
 			res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","comm.quest")
 			questInfo = assert (loadstring ('return ' .. gmcparg or ""))()
 			BuildQuestInfo(questInfo)
-			--[[
-			if questInfo.action == 'status' then
-				setQuestTimer()
-			end
-			--]]
 		end
 	end
 end -- OnPluginBroadcast
@@ -285,8 +266,7 @@ function RightClickMenu()
 			movewindow.save_state(win)
 			WindowFont (win, font_id, font_name, font_size, false, false, false, false) -- normal font
 			
-			GetWindowSize()
-			SetUpHotspotsAndDraw()
+			DrawWindow()
 		end
 	end
 end -- RightClickMenu
@@ -338,8 +318,7 @@ function OnPluginInstall ()
 	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=default_x, y=default_y})
 
 	--- Setup the window.
-	GetWindowSize()
-	SetUpHotspotsAndDraw(true)
+	DrawWindow(true)
 
 	if IsConnected() then
 		Send_GMCP_Packet("request quest")
