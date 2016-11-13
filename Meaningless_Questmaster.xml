@@ -153,16 +153,10 @@ end -- AddMouseClickHotspot
 
 function UpdateWaitTimer(timerName)
 	if page_built then
-	
 		EnableTimer("TNQTimer")
 		if (questInfo.action == 'comp' or questInfo.action == 'fail' or questInfo.wait ~= nil) then
-			questInfoDisplay = {}
-			local TNQ = math.ceil((timeOfNextQuest - os.time() ) / 60)
-		
-			table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-			table.insert(questInfoDisplay, {label="TNQ    : ", info=string.format("%d", TNQ) .. " min", colour=0xffffff})
+			GenerateToNextQuestInfo(questInfo)
 			DrawWindow()
-			
 		elseif (questInfo.action == 'start' or questInfo.timer ~= nil) then
 			GenerateQuestTargetInfo(questInfo)
 			DrawWindow()
@@ -190,6 +184,13 @@ function GeneratedKilledInfo(questInfo)
 	table.insert(questInfoDisplay, {label="Time Left:  ", info=string.format("%d", TimeToComplete) .. " min", colour=0xffffff})
 end -- GeneratedKilledInfo
 
+function GenerateToNextQuestInfo(questInfo)
+	questInfoDisplay = {}
+	local TNQ = math.ceil((timeOfNextQuest - os.time() ) / 60)
+	table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
+	table.insert(questInfoDisplay, {label="TNQ    : ", info=string.format("%d", TNQ) .. " min", colour=0xffffff})
+end -- GenerateToNextQuestInfo
+
 function BuildQuestInfo(questInfo)
 	questInfoDisplay = {}
 	
@@ -200,16 +201,10 @@ function BuildQuestInfo(questInfo)
 		GenerateQuestTargetInfo(questInfo)
 	elseif questInfo.action == 'reset' or questInfo.timer ~= nil then
 		timeOfNextQuest = os.time() + questInfo.timer * 60
-		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.timer .. " min", colour=0xffffff})
-	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.wait ~= nil then
+		GenerateToNextQuestInfo(questInfo)
+	elseif questInfo.action == 'fail' or questInfo.action == 'comp' or questInfo.wait ~= nil or questInfo.action == 'timeout'then
 		timeOfNextQuest = os.time() + questInfo.wait * 60
-		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.wait .. " min", colour=0xffffff})
-	elseif questInfo.action == 'timeout' then
-		timeOfNextQuest = os.time() + questInfo.wait * 60
-		table.insert(questInfoDisplay, {label="Status : ", info="Waiting", colour=0xffffff})
-		table.insert(questInfoDisplay, {label="TNQ    : ", info=questInfo.wait .. " min", colour=0xffffff})
+		GenerateToNextQuestInfo(questInfo)
 	elseif questInfo.action == 'killed' then
 		GeneratedKilledInfo(questInfo)
 	elseif questInfo.action == 'warning' then
@@ -255,18 +250,16 @@ function MouseUp(flags, hotspot_id, win)
 	if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 and hotspot_id == "RightClickHotSpot" then
 		RightClickMenu()
 	elseif bit.band (flags, miniwin.hotspot_got_lh_mouse) ~= 0 and hotspot_id == "AreaHotspot" then
-		print("clicked on area")
 		if RuntoKey[questInfo.area] ~= nil then
 			world.Send("runto " .. RuntoKey[questInfo.area])
 		else
-			print("could not find " .. questInfo.area .. " in our list.")
+			print("Could not find " .. questInfo.area .. " in our list.")
 		end
 	elseif bit.band (flags, miniwin.hotspot_got_lh_mouse) ~= 0 and hotspot_id == "MapHotspot" then
-		print("clicked on room")
 		if GaardKey[questInfo.area] ~= nil then
 			OpenBrowser("http://maps.gaardian.com/index.php?areaid=" .. GaardKey[questInfo.area])
 		else
-			print("could not find " .. questInfo.area .. " in our list.")
+			print("Could not find " .. questInfo.area .. " in our list.")
 		end
 	end
 	return true
