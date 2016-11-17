@@ -83,8 +83,8 @@ function DrawWindow()
 			top = TOP_MARGIN + (i-1) * line_height
 			left = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, v.label, false) + WindowTextWidth(win, font_id, v.info, false)
 			contentHeight = contentHeight + line_height
-			contentWidth = math.max(contentWidth, left)
 			
+			contentWidth = math.max(contentWidth, left)
 		end
 	else
 		contentWidth = LEFT_MARGIN * 2 + WindowTextWidth(win, font_id, "Waiting for Quest Information", false)
@@ -120,15 +120,20 @@ function DrawWindow()
 			-- add hyperlink
 			if v.label == "Room      : " then
 				AddMouseClickHotspot("MapHotspot", left, top , left + WindowTextWidth(win, font_id, v.info, false), top + line_height - 1, 1)
+				left = left + WindowText(win, font_id_ul, v.info, left, top, 0, 0, font_colour)
 			elseif v.label == "Area      : " then
 				AddMouseClickHotspot("AreaHotspot", left, top , left + WindowTextWidth(win, font_id, v.info, false), top + line_height - 1, 1)
+				left = left + WindowText(win, font_id_ul, v.info, left, top, 0, 0, font_colour)
+			else
+				left = left + WindowText(win, font_id, v.info, left, top, 0, 0, font_colour)
 			end
-			left = left + WindowText(win, font_id, v.info, left, top, 0, 0, font_colour)
 		end
 	else
 		left = LEFT_MARGIN + WindowText(win, font_id, "Waiting for Quest Information", LEFT_MARGIN, minTitleHeight + TOP_MARGIN, 0, 0, font_colour)
 	end
 
+	CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win) -- fail silently
+	
 	-- Add the drag handler so they can move the window around
 	movewindow.add_drag_handler (win, 1, 1, -1, minTitleHeight, 1) -- drag the title
 	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
@@ -221,6 +226,8 @@ function OnPluginBroadcast (msg, id, name, text)
 			questInfo = assert (loadstring ('return ' .. gmcparg or ""))()
 			BuildQuestInfo(questInfo)
 		end
+   elseif (id == "462b665ecb569efbf261422f" and msg==996 and text == "re-register z") then
+      CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win)
 	end
 end -- OnPluginBroadcast
 
@@ -250,16 +257,16 @@ function MouseUp(flags, hotspot_id, win)
 	if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 and hotspot_id == "RightClickHotSpot" then
 		RightClickMenu()
 	elseif bit.band (flags, miniwin.hotspot_got_lh_mouse) ~= 0 and hotspot_id == "AreaHotspot" then
-		if RuntoKey[questInfo.area] ~= nil then
-			world.Send("runto " .. RuntoKey[questInfo.area])
+		if QuestArea[questInfo.area].runto ~= nil then
+			world.Send("runto " .. QuestArea[questInfo.area].runto)
 		else
-			print("Could not find " .. questInfo.area .. " in our list.")
+			print("Could not find " .. questInfo.area .. " in our runto list.")
 		end
 	elseif bit.band (flags, miniwin.hotspot_got_lh_mouse) ~= 0 and hotspot_id == "MapHotspot" then
-		if GaardKey[questInfo.area] ~= nil then
-			OpenBrowser("http://maps.gaardian.com/index.php?areaid=" .. GaardKey[questInfo.area])
+		if QuestArea[questInfo.area].gaard ~= nil then
+			OpenBrowser("http://maps.gaardian.com/index.php?areaid=" .. QuestArea[questInfo.area].gaard)
 		else
-			print("Could not find " .. questInfo.area .. " in our list.")
+			print("Could not find " .. questInfo.area .. " in our gaard list.")
 		end
 	end
 	return true
@@ -273,7 +280,8 @@ function LeftClickOnly(flags, hotspot_id, win)
 end
 
 function SetFontInfo()
-	WindowFont (win, font_id, font_name, font_size, false, false, false, false) --- Grab font size settings.
+	WindowFont(win, font_id, font_name, font_size, false, false, false, false) --- Grab font size settings.
+	WindowFont(win, font_id_ul, font_name, font_size, false, false, true, false) --- underline font
 	font_height = WindowFontInfo (win, font_id, 1) - WindowFontInfo (win, font_id, 4) + 1 -- height
 	font_width  = WindowFontInfo (win, font_id, 6)  -- avg width
 	line_height = font_height + 1
@@ -283,6 +291,7 @@ function OnPluginInstall ()
 	WindowCreate (win, 600, 600, 1, 1, 0, 0, background_colour) 
 
 	font_id        = "Questmaster_font"
+	font_id_ul	   = "Questmaster_font_underline"
 	local fonts = utils.getfontfamilies()
 	font_name = GetVariable("font_name") or default_font_name
 	font_size = tonumber(GetVariable("font_size")) or default_font_size
@@ -356,465 +365,304 @@ function OnPluginSaveState ()
 	SetVariable ("font_size", font_size)
 end -- function OnPluginSaveState
 
--- set up runto keywords
-RuntoKey = {}
-RuntoKey["Kimr's Farm"] = "farm"
-RuntoKey["Lowlands Paradise '96"] = "lowlands"
-RuntoKey["The Forest of Li'Dnesh"] = "lidnesh"
-RuntoKey["The Path of the Believer"] = "believer"
-RuntoKey["Tournament Camps"] = "camps"
-RuntoKey["Art of Melody"] = "melody"
-RuntoKey["The Call of Heroes"] = "callhero"
-RuntoKey["Hotel Orlando"] = "orlando"
-RuntoKey["Land of Legend"] = "legend"
-RuntoKey["Sen'narre Lake"] = "sennarre"
-RuntoKey["The Land of the Beer Goblins"] = "beer"
-RuntoKey["Gallows Hill"] = "gallows"
-RuntoKey["Jotunheim"] = "jotun"
-RuntoKey["Kingsholm"] = "kingsholm"
-RuntoKey["Challenge Area"] = "challenge"
-RuntoKey["The Aylorian Academy"] = "academy"
-RuntoKey["The Grand City of Aylor"] = "aylor"
-RuntoKey["A Bad Trip"] = "badtrip"
-RuntoKey["Alagh, the Blood Lands"] = "alagh"
-RuntoKey["Gelidus"] = "gelidus"
-RuntoKey["The Continent of Mesolar"] = "mesolar"
-RuntoKey["The Dark Continent, Abend"] = "abend"
-RuntoKey["The Laser Zone"] = "lasertwo"
-RuntoKey["The Southern Ocean"] = "southern"
-RuntoKey["The Uncharted Oceans"] = "uncharted"
-RuntoKey["The Warzone"] = "warzone"
-RuntoKey["Vidblain, the Ever Dark"] = "vidblain"
-RuntoKey["Aardwolf Birthday Area"] = "birthday"
-RuntoKey["Chaprenula's Laboratory"] = "lab"
-RuntoKey["Siren's Oasis Resort"] = "sirens"
-RuntoKey["The Fire Swamp"] = "fireswamp"
-RuntoKey["The First Ascent"] = "ascent"
-RuntoKey["The Graveyard"] = "graveyard"
-RuntoKey["Den of Thieves"] = "thieves"
-RuntoKey["Giant's Pet Store"] = "petstore"
-RuntoKey["Sundered Vale"] = "vale"
-RuntoKey["The Amusement Park"] = "amusement"
-RuntoKey["The Chessboard"] = "chessboard"
-RuntoKey["Child's Play"] = "childsplay"
-RuntoKey["Dortmund"] = "dortmund"
-RuntoKey["Canyon Memorial Hospital"] = "canyon"
-RuntoKey["Fantasy Fields"] = "fantasy"
-RuntoKey["The Gauntlet"] = "gauntlet"
-RuntoKey["The Wood Elves of Nalondir"] = "woodelves"
-RuntoKey["A Magical Hodgepodge"] = "hodgepodge"
-RuntoKey["Aardwolf Zoological Park"] = "zoo"
-RuntoKey["Brightsea and Glimmerdim"] = "glimmerdim"
-RuntoKey["Cloud City of Gnomalin"] = "gnomalin"
-RuntoKey["Olde Worlde Carnivale"] = "carnivale"
-RuntoKey["The Infestation"] = "infest"
-RuntoKey["The Shadows of Minos"] = "minos"
-RuntoKey["The Town of Solan"] = "solan"
-RuntoKey["War of the Wizards"] = "wizards"
-RuntoKey["Hatchling Aerie"] = "hatchling"
-RuntoKey["Adventures in Sendhia"] = "sendhian"
-RuntoKey["Swordbreaker's Hoard"] = "hoard"
-RuntoKey["Kerofk"] = "kerofk"
-RuntoKey["The Chasm and The Catacombs"] = "chasm"
-RuntoKey["Warrior's Training Camp"] = "wtc"
-RuntoKey["All in a Fayke Day"] = "fayke"
-RuntoKey["Guardian's Spyre of Knowledge"] = "spyreknow"
-RuntoKey["Sho'aram, Castle in the Sand"] = "sandcastle"
-RuntoKey["Fort Terramire"] = "terramire"
-RuntoKey["New Thalos"] = "newthalos"
-RuntoKey["Storm Mountain"] = "storm"
-RuntoKey["Jungles of Verume"] = "verume"
-RuntoKey["Wildwood"] = "wildwood"
-RuntoKey["Dhal'Gora Outlands"] = "dhalgora"
-RuntoKey["The Temple of Shouggoth"] = "shouggoth"
-RuntoKey["Keep of the Kobaloi"] = "kobaloi"
-RuntoKey["Aerial City of Cineko"] = "cineko"
-RuntoKey["Kul Tiras"] = "kultiras"
-RuntoKey["Necromancers' Guild"] = "necro"
-RuntoKey["The UnderDark"] = "underdark"
-RuntoKey["Realm of the Zodiac"] = "zodiac"
-RuntoKey["Atlantis"] = "atlantis"
-RuntoKey["Death's Manor"] = "manor"
-RuntoKey["The Fractured Lands"] = "fractured"
-RuntoKey["Weather Observatory"] = "weather"
-RuntoKey["The Maelstrom"] = "maelstrom"
-RuntoKey["Ancient Greece"] = "greece"
-RuntoKey["Kingdom of Ahner"] = "ahner"
-RuntoKey["Thandeld's Conflict"] = "conflict"
-RuntoKey["Sheila's Cat Sanctuary"] = "cats"
-RuntoKey["Mudwog's Swamp"] = "mudwog"
-RuntoKey["Cradlebrook"] = "cradle"
-RuntoKey["The Coral Kingdom"] = "coral"
-RuntoKey["The Labyrinth"] = "labyrinth"
-RuntoKey["Gold Rush"] = "goldrush"
-RuntoKey["The Imperial City of Reme"] = "reme"
-RuntoKey["The Silver Volcano"] = "volcano"
-RuntoKey["Descent to Hell"] = "hell"
-RuntoKey["Onyx Bazaar"] = "bazaar"
-RuntoKey["The Blighted Tundra of Andarin"] = "andarin"
-RuntoKey["Diamond Soul Revelation"] = "dsr"
-RuntoKey["The Great Salt Flats"] = "salt"
-RuntoKey["Raganatittu"] = "raga"
-RuntoKey["The Darkside of the Fractured"] = "darkside"
-RuntoKey["The Wobbly Woes of Woobleville"] = "wooble"
-RuntoKey["Zangar's Demonic Grotto"] = "zangar"
-RuntoKey["The Land of Oz"] = "landofoz"
-RuntoKey["Paradise Lost"] = "paradise"
-RuntoKey["The Flying Citadel"] = "citadel"
-RuntoKey["Castle Vlad-Shamir"] = "vlad"
-RuntoKey["Earth Plane 4"] = "earthplane"
-RuntoKey["The Old Cathedral"] = "cathedral"
-RuntoKey["Jenny's Tavern"] = "jenny"
-RuntoKey["Storm Ships of Lem-Dagor"] = "lemdagor"
-RuntoKey["The Yurgach Domain"] = "yurgach"
-RuntoKey["Hedgehogs' Paradise"] = "hedge"
-RuntoKey["Plains of Nulan'Boar"] = "nulan"
-RuntoKey["The Goblin Fortress"] = "fortress"
-RuntoKey["The Great City of Knossos"] = "knossos"
-RuntoKey["The Killing Fields"] = "fields"
-RuntoKey["The Palace of Song"] = "songpalace"
-RuntoKey["The Three Pillars of Diatz"] = "diatz"
-RuntoKey["Realm of Deneria"] = "deneria"
-RuntoKey["The Upper Planes"] = "uplanes"
-RuntoKey["The DarkLight"] = "darklight"
-RuntoKey["The Ruins of Diamond Reach"] = "ruins"
-RuntoKey["Rosewood Castle"] = "rosewood"
-RuntoKey["Imperial Nation"] = "imperial"
-RuntoKey["Aardington Estate"] = "aardington"
-RuntoKey["The Tournament of Illoria"] = "illoria"
-RuntoKey["Wayward Alehouse"] = "alehouse"
-RuntoKey["Nenukon and the Far Country"] = "nenukon"
-RuntoKey["The Lower Planes"] = "lplanes"
-RuntoKey["The Relinquished Tombs"] = "tombs"
-RuntoKey["Tai'rha Laym"] = "laym"
-RuntoKey["The Empire of Talsa"] = "talsa"
-RuntoKey["The Fabled City of Stone"] = "stone"
-RuntoKey["Northstar"] = "northstar"
-RuntoKey["Kobold Siege Camp"] = "siege"
-RuntoKey["Snuckles Village"] = "snuckles"
-RuntoKey["The Gladiator's Arena"] = "arena"
-RuntoKey["The Realm of the Hawklords"] = "hawklord"
-RuntoKey["Wedded Bliss"] = "bliss"
-RuntoKey["Anthrox"] = "anthrox"
-RuntoKey["Island of Lost Time"] = "losttime"
-RuntoKey["Realm of the Firebird"] = "firebird"
-RuntoKey["Deathtrap Dungeon"] = "deathtrap"
-RuntoKey["Pompeii"] = "pompeii"
-RuntoKey["The Scarred Lands"] = "scarred"
-RuntoKey["The Monastery"] = "monastery"
-RuntoKey["Dark Elf Stronghold"] = "stronghold"
-RuntoKey["Elemental Chaos"] = "elemental"
-RuntoKey["Halls of the Damned"] = "damned"
-RuntoKey["Insanitaria"] = "insan"
-RuntoKey["Ascension Bluff Nursing Home"] = "nursing"
-RuntoKey["Dusk Valley"] = "duskvalley"
-RuntoKey["Faerie Tales"] = "ft1"
-RuntoKey["Seven Wonders"] = "wonders"
-RuntoKey["Xyl's Mosaic"] = "xylmos"
-RuntoKey["Prosper's Island"] = "prosper"
-RuntoKey["Masquerade Island"] = "masq"
-RuntoKey["Into the Long Night"] = "longnight"
-RuntoKey["Sanctity of Eternal Damnation"] = "sanctity"
-RuntoKey["Gnoll's Quarry"] = "quarry"
-RuntoKey["The Marshlands of Agroth"] = "agroth"
-RuntoKey["Tairayden Peninsula"] = "peninsula"
-RuntoKey["The Stuff of Shadows"] = "stuff"
-RuntoKey["Living Mines of Dak'Tai"] = "livingmine"
-RuntoKey["Christmas Vacation"] = "xmas"
-RuntoKey["The Misty Shores of Yarr"] = "yarr"
-RuntoKey["Gilda And The Dragon"] = "gilda"
-RuntoKey["The Eighteenth Dynasty"] = "dynasty"
-RuntoKey["The Sanguine Tavern"] = "sanguine"
-RuntoKey["Verdure Estate"] = "verdure"
-RuntoKey["The Slaughter House"] = "slaughter"
-RuntoKey["Faerie Tales II"] = "ftii"
-RuntoKey["House of Cards"] = "cards"
-RuntoKey["The Archipelago of Entropy"] = "entropy"
-RuntoKey["The Uprising"] = "uprising"
-RuntoKey["The Broken Halls of Horath"] = "horath"
-RuntoKey["The School of Horror"] = "sohtwo"
-RuntoKey["The Amazon Nation"] = "amazon"
-RuntoKey["Tumari's Diner"] = "diner"
-RuntoKey["The Blood Opal of Rauko'ra"] = "raukora"
-RuntoKey["The School of Horror"] = "soh"
-RuntoKey["Foolish Promises"] = "promises"
-RuntoKey["The Dark Temple of Zyian"] = "zyian"
-RuntoKey["The Drageran Empire"] = "drageran"
-RuntoKey["Tir na nOg"] = "tirna"
-RuntoKey["A Peaceful Giant Village"] = "village"
-RuntoKey["The Reman Conspiracy"] = "remcon"
-RuntoKey["The Mountains of Desolation"] = "desolation"
-RuntoKey["The Desert Prison"] = "desert"
-RuntoKey["Desert Doom"] = "ddoom"
-RuntoKey["Imagi's Nation"] = "imagi"
-RuntoKey["Nanjiki Ruins"] = "nanjiki"
-RuntoKey["The Abyssal Caverns of Sahuagi"] = "sahuagin"
-RuntoKey["The Cougarian Queendom"] = "cougarian"
-RuntoKey["The Gathering Horde"] = "gathering"
-RuntoKey["Unearthly Bonds"] = "bonds"
-RuntoKey["The Empire of Aiighialla"] = "empire"
-RuntoKey["Takeda's Warcamp"] = "takeda"
-RuntoKey["Arisian Realm"] = "arisian"
-RuntoKey["Winterlands"] = "winter"
-RuntoKey["Battlefields of Adaldar"] = "adaldar"
-RuntoKey["Sagewood Grove"] = "sagewood"
-RuntoKey["Rebellion of the Nix"] = "rebellion"
-RuntoKey["The Cataclysm"] = "cataclysm"
-RuntoKey["The Ruins of Stormhaven"] = "stormhaven"
-RuntoKey["Black Lagoon"] = "lagoon"
-RuntoKey["Annwn"] = "annwn"
-RuntoKey["Dread Tower"] = "dread"
-RuntoKey["Helegear Sea"] = "helegear"
-RuntoKey["The Covenant of Mistridge"] = "mistridge"
-RuntoKey["The Witches of Omen Tor"] = "omentor"
-RuntoKey["Tribal Origins"] = "origins"
-RuntoKey["Avian Kingdom"] = "avian"
-RuntoKey["Empyrean, Streets of Downfall"] = "empyrean"
-RuntoKey["Eternal Autumn"] = "autumn"
-RuntoKey["The Glamdursil"] = "glamdursil"
-RuntoKey["The Tree of Life"] = "tol"
-RuntoKey["Black Rose"] = "blackrose"
-RuntoKey["Intrigues of Times Past"] = "times"
-RuntoKey["Mount duNoir"] = "dunoir"
-RuntoKey["The Deadlights"] = "deadlights"
-RuntoKey["The Keep of Kearvek"] = "kearvek"
-RuntoKey["Artificer's Mayhem"] = "mayhem"
-RuntoKey["Tanra'vea"] = "tanra"
-RuntoKey["The Astral Travels"] = "astral"
-RuntoKey["The Blood Sanctum"] = "sanctum"
-RuntoKey["The Nine Hells"] = "ninehells"
-RuntoKey["The Partroxis"] = "partroxis"
-RuntoKey["The Temple of Shal'indrael"] = "temple"
-RuntoKey["Yggdrasil: The World Tree"] = "ygg"
-RuntoKey["Kiksaadi Cove"] = "cove"
-RuntoKey["Entrance to Hades"] = "hades"
-RuntoKey["Nottingham"] = "nottingham"
-RuntoKey["The Council of the Wyrm"] = "wyrm"
-RuntoKey["The Icy Caldera of Mauldoon"] = "caldera"
-RuntoKey["The Trouble with Gwillimberry"] = "gwillim"
-RuntoKey["Crynn's Church"] = "crynn"
-RuntoKey["Umari's Castle"] = "umari"
-RuntoKey["A Genie's Last Wish"] = "geniewish"
-RuntoKey["Afterglow"] = "afterglow"
-RuntoKey["Andolor's Ocean Adventure Park"] = "oceanpark"
-RuntoKey["Gypsy Caravan"] = "caravan"
-RuntoKey["Icefall"] = "icefall"
-RuntoKey["Journey to the Inferno"] = "inferno"
-RuntoKey["Ketu Uplands"] = "ketu"
-RuntoKey["Nebulous Horizon"] = "horizon"
-RuntoKey["Oradrin's Chosen"] = "oradrin"
-RuntoKey["Realm of the Sacred Flame"] = "firenation"
-RuntoKey["The Cracks of Terra"] = "terra"
-RuntoKey["The Earth Lords"] = "earthlords"
-RuntoKey["The Nyne Woods"] = "nynewoods"
-RuntoKey["The Titans' Keep"] = "titan"
-RuntoKey["The Were Wood"] = "werewood"
-RuntoKey["Qong"] = "qong"
-RuntoKey["Radiance Woods"] = "radiance"
-RuntoKey["Sea King's Dominion"] = "seaking"
-RuntoKey["The Curse of the Midnight Fens"] = "fens"
-RuntoKey["The Dungeon of Doom"] = "dundoom"
-RuntoKey["The Realm of Infamy"] = "infamy"
-RuntoKey["A Clearing in the Woods"] = "romani"
-RuntoKey["Cathedral of the Elements"] = "cabal"
-RuntoKey["Dark Temple of Zhamet"] = "rhabdo"
-RuntoKey["Disciples of Hassan Clan Hall"] = "doh"
-RuntoKey["Dominion Clan Area"] = "dominion"
-RuntoKey["Isle of Anglesey"] = "druid"
-RuntoKey["Loqui Clan Area"] = "loqui"
-RuntoKey["Masaki Clan Area"] = "masaki"
-RuntoKey["Midgaardian Publishing House"] = "gaardian"
-RuntoKey["Old clan holding area 1"] = "oldclanone"
-RuntoKey["Old clan holding area 2"] = "oldclantwo"
-RuntoKey["Old clan holding area 3"] = "oldclanthr"
-RuntoKey["Old clan holding area 4"] = "oldclanfou"
-RuntoKey["Perdition Clan Area"] = "perdition"
-RuntoKey["Rogues Clan Hall"] = "rogues"
-RuntoKey["Secret Imm Project #69"] = "wolfmaze"
-RuntoKey["The Bard Clan"] = "bard"
-RuntoKey["The Boot Camp"] = "bootcamp"
-RuntoKey["The Children of Ba'alzamon HQ"] = "baal"
-RuntoKey["The Collective Mind of Tao"] = "tao"
-RuntoKey["The Crimson Horde Clan Hall"] = "crimson"
-RuntoKey["The Crusader Clan"] = "crusaders"
-RuntoKey["The Emerald Clan HQ"] = "emerald"
-RuntoKey["The Fortress of Knowledge"] = "seekers"
-RuntoKey["The Halls of Retribution"] = "retri"
-RuntoKey["The Halls of Vanir"] = "vanir"
-RuntoKey["The Ivory City"] = "amazonclan"
-RuntoKey["The Legendary City of Tanelorn"] = "tanelorn"
-RuntoKey["The Order of Light"] = "light"
-RuntoKey["The Realm of Chaos"] = "chaos"
-RuntoKey["The S.S. Hook"] = "hook"
-RuntoKey["The Shadokil Guildhouse"] = "shadokil"
-RuntoKey["The Stronghold of the Imperium"] = "imperium"
-RuntoKey["The Twinlobe Clan HQ"] = "twinlobe"
-RuntoKey["The Underground Hall"] = "daoine"
-RuntoKey["The White Dragon Clan"] = "dragon"
-RuntoKey["The World of the Watchmen"] = "watchmen"
-RuntoKey["The Xunti Cult"] = "xunti"
-RuntoKey["Touchstone Cavern"] = "touchstone"
-RuntoKey["Twilight Hall"] = "pyre"
-
-GaardKey = {}
-GaardKey["Kimr's Farm"] = "301"
-GaardKey["Lowlands Paradise '96"] = "2"
-GaardKey["The Forest of Li'Dnesh"] = "5"
-GaardKey["The Path of the Believer"] = "313"
-GaardKey["Tournament Camps"] = "8"
-GaardKey["Art of Melody"] = "9"
-GaardKey["The Call of Heroes"] = "10"
-GaardKey["Hotel Orlando"] = "12"
-GaardKey["Land of Legend"] = "13"
-GaardKey["Sen'narre Lake"] = "14"
-GaardKey["The Land of the Beer Goblins"] = "15"
-GaardKey["Gallows Hill"] = "11"
-GaardKey["Jotunheim"] = "307"
-GaardKey["Kingsholm"] = "306"
-GaardKey["The Aylorian Academy"] = "258"
-GaardKey["The Grand City of Aylor"] = "18"
-GaardKey["The Dark Continent, Abend"] = "267"
-GaardKey["Vidblain, the Ever Dark"] = "272"
-GaardKey["Aardwolf Birthday Area"] = "20"
-GaardKey["Chaprenula's Laboratory"] = "250"
-GaardKey["Siren's Oasis Resort"] = "21"
-GaardKey["The Fire Swamp"] = "265"
-GaardKey["The First Ascent"] = "289"
-GaardKey["The Graveyard"] = "23"
-GaardKey["Den of Thieves"] = "25"
-GaardKey["Giant's Pet Store"] = "26"
-GaardKey["Sundered Vale"] = "253"
-GaardKey["The Amusement Park"] = "27"
-GaardKey["The Chessboard"] = "28"
-GaardKey["Child's Play"] = "30"
-GaardKey["Dortmund"] = "31"
-GaardKey["Canyon Memorial Hospital"] = "254"
-GaardKey["Fantasy Fields"] = "33"
-GaardKey["The Gauntlet"] = "36"
-GaardKey["The Wood Elves of Nalondir"] = "37"
-GaardKey["A Magical Hodgepodge"] = "38"
-GaardKey["Aardwolf Zoological Park"] = "39"
-GaardKey["Brightsea and Glimmerdim"] = "326"
-GaardKey["Cloud City of Gnomalin"] = "259"
-GaardKey["Olde Worlde Carnivale"] = "40"
-GaardKey["The Infestation"] = "41"
-GaardKey["The Shadows of Minos"] = "255"
-GaardKey["The Town of Solan"] = "305"
-GaardKey["War of the Wizards"] = "46"
-GaardKey["Hatchling Aerie"] = "264"
-GaardKey["Adventures in Sendhia"] = "316"
-GaardKey["Swordbreaker's Hoard"] = "256"
-GaardKey["Kerofk"] = "51"
-GaardKey["The Chasm and The Catacombs"] = "251"
-GaardKey["Warrior's Training Camp"] = "285"
-GaardKey["All in a Fayke Day"] = "53"
-GaardKey["Guardian's Spyre of Knowledge"] = "283"
-GaardKey["Sho'aram, Castle in the Sand"] = "277"
-GaardKey["Fort Terramire"] = "55"
-GaardKey["New Thalos"] = "56"
-GaardKey["Storm Mountain"] = "57"
-GaardKey["Jungles of Verume"] = "59"
-GaardKey["Wildwood"] = "317"
-GaardKey["Dhal'Gora Outlands"] = "325"
-GaardKey["The Temple of Shouggoth"] = "62"
-GaardKey["Keep of the Kobaloi"] = "327"
-GaardKey["Aerial City of Cineko"] = "350"
-GaardKey["Kul Tiras"] = "68"
-GaardKey["Necromancers' Guild"] = "69"
-GaardKey["The UnderDark"] = "70"
-GaardKey["Realm of the Zodiac"] = "257"
-GaardKey["Atlantis"] = "74"
-GaardKey["Death's Manor"] = "72"
-GaardKey["The Fractured Lands"] = "73"
-GaardKey["Weather Observatory"] = "299"
-GaardKey["The Maelstrom"] = "288"
-GaardKey["Ancient Greece"] = "75"
-GaardKey["Kingdom of Ahner"] = "76"
-GaardKey["Thandeld's Conflict"] = "340"
-GaardKey["Sheila's Cat Sanctuary"] = "279"
-GaardKey["Mudwog's Swamp"] = "328"
-GaardKey["Cradlebrook"] = "80"
-GaardKey["The Coral Kingdom"] = "81"
-GaardKey["The Labyrinth"] = "82"
-GaardKey["Gold Rush"] = "83"
-GaardKey["The Imperial City of Reme"] = "84"
-GaardKey["The Silver Volcano"] = "85"
-GaardKey["Descent to Hell"] = "86"
-GaardKey["Onyx Bazaar"] = "261"
-GaardKey["The Blighted Tundra of Andarin"] = "300"
-GaardKey["Diamond Soul Revelation"] = "88"
-GaardKey["The Great Salt Flats"] = "89"
-GaardKey["Raganatittu"] = "90"
-GaardKey["The Wobbly Woes of Woobleville"] = "92"
-GaardKey["The Land of Oz"] = "94"
-GaardKey["Castle Vlad-Shamir"] = "97"
-GaardKey["Earth Plane 4"] = "98"
-GaardKey["The Old Cathedral"] = "100"
-GaardKey["Jenny's Tavern"] = "101"
-GaardKey["Hedgehogs' Paradise"] = "330"
-GaardKey["Plains of Nulan'Boar"] = "278"
-GaardKey["The Goblin Fortress"] = "104"
-GaardKey["The Palace of Song"] = "319"
-GaardKey["The Three Pillars of Diatz"] = "107"
-GaardKey["Realm of Deneria"] = "273"
-GaardKey["The DarkLight"] = "109"
-GaardKey["Rosewood Castle"] = "111"
-GaardKey["Imperial Nation"] = "112"
-GaardKey["The Tournament of Illoria"] = "113"
-GaardKey["Wayward Alehouse"] = "329"
-GaardKey["The Empire of Talsa"] = "119"
-GaardKey["Northstar"] = "121"
-GaardKey["Snuckles Village"] = "122"
-GaardKey["The Realm of the Hawklords"] = "281"
-GaardKey["Wedded Bliss"] = "124"
-GaardKey["Anthrox"] = "125"
-GaardKey["Island of Lost Time"] = "127"
-GaardKey["Realm of the Firebird"] = "126"
-GaardKey["Pompeii"] = "129"
-GaardKey["The Monastery"] = "131"
-GaardKey["Dark Elf Stronghold"] = "118"
-GaardKey["Elemental Chaos"] = "290"
-GaardKey["Insanitaria"] = "135"
-GaardKey["Ascension Bluff Nursing Home"] = "347"
-GaardKey["Dusk Valley"] = "351"
-GaardKey["Faerie Tales"] = "136"
-GaardKey["Into the Long Night"] = "141"
-GaardKey["The Marshlands of Agroth"] = "144"
-GaardKey["Tairayden Peninsula"] = "331"
-GaardKey["Living Mines of Dak'Tai"] = "291"
-GaardKey["Christmas Vacation"] = "146"
-GaardKey["The Misty Shores of Yarr"] = "147"
-GaardKey["Gilda And The Dragon"] = "148"
-GaardKey["The Eighteenth Dynasty"] = "149"
-GaardKey["The Slaughter House"] = "151"
-GaardKey["Faerie Tales II"] = "153"
-GaardKey["House of Cards"] = "275"
-GaardKey["The Archipelago of Entropy"] = "154"
-GaardKey["A Peaceful Giant Village"] = "164"
-GaardKey["The Mountains of Desolation"] = "166"
-GaardKey["Desert Doom"] = "168"
-GaardKey["Imagi's Nation"] = "360"
-GaardKey["Unearthly Bonds"] = "171"
-GaardKey["Arisian Realm"] = "174"
-GaardKey["Winterlands"] = "175"
-GaardKey["The Ruins of Stormhaven"] = "324"
-GaardKey["The Witches of Omen Tor"] = "322"
-GaardKey["Intrigues of Times Past"] = "280"
-GaardKey["The Keep of Kearvek"] = "282"
-GaardKey["Tanra'vea"] = "323"
-GaardKey["The Temple of Shal'indrael"] = "198"
-GaardKey["Umari's Castle"] = "293"
-GaardKey["Gypsy Caravan"] = "304"
-GaardKey["Ketu Uplands"] = "266"
-GaardKey["Realm of the Sacred Flame"] = "287"
-GaardKey["The Dungeon of Doom"] = "209"
-GaardKey["Loqui Clan Area"] = "217"
-GaardKey["Midgaardian Publishing House"] = "219"
-GaardKey["The Bard Clan"] = "226"
-GaardKey["The Emerald Clan HQ"] = "231"
-GaardKey["The Legendary City of Tanelorn"] = "236"
-GaardKey["The Underground Hall"] = "244"
-GaardKey["The Darkside of the Fractured"] = "91"
+QuestArea = {}
+QuestArea["Kimr's Farm"]  = {runto= "farm", gaard= "301"}
+QuestArea["Lowlands Paradise '96"]  = {runto= "lowlands", gaard= "2"}
+QuestArea["The Forest of Li'Dnesh"]  = {runto= "lidnesh", gaard= "5"}
+QuestArea["The Path of the Believer"]  = {runto= "believer", gaard= "313"}
+QuestArea["Tournament Camps"]  = {runto= "camps", gaard= "8"}
+QuestArea["Art of Melody"]  = {runto= "melody", gaard= "9"}
+QuestArea["The Call of Heroes"]  = {runto= "callhero", gaard= "10"}
+QuestArea["Hotel Orlando"]  = {runto= "orlando", gaard= "12"}
+QuestArea["Land of Legend"]  = {runto= "legend", gaard= "13"}
+QuestArea["Sen'narre Lake"]  = {runto= "sennarre", gaard= "14"}
+QuestArea["The Land of the Beer Goblins"]  = {runto= "beer", gaard= "15"}
+QuestArea["Gallows Hill"]  = {runto= "gallows", gaard= "11"}
+QuestArea["Jotunheim"]  = {runto= "jotun", gaard= "307"}
+QuestArea["Kingsholm"]  = {runto= "kingsholm", gaard= "306"}
+QuestArea["Challenge Area"]  = {runto= "challenge"}
+QuestArea["The Aylorian Academy"]  = {runto= "academy", gaard= "258"}
+QuestArea["The Grand City of Aylor"]  = {runto= "aylor", gaard= "18"}
+QuestArea["A Bad Trip"]  = {runto= "badtrip"}
+QuestArea["Alagh, the Blood Lands"]  = {runto= "alagh"}
+QuestArea["Gelidus"]  = {runto= "gelidus"}
+QuestArea["The Continent of Mesolar"]  = {runto= "mesolar"}
+QuestArea["The Dark Continent, Abend"]  = {runto= "abend", gaard= "267"}
+QuestArea["The Laser Zone"]  = {runto= "lasertwo"}
+QuestArea["The Southern Ocean"]  = {runto= "southern"}
+QuestArea["The Uncharted Oceans"]  = {runto= "uncharted"}
+QuestArea["The Warzone"]  = {runto= "warzone"}
+QuestArea["Vidblain, the Ever Dark"]  = {runto= "vidblain", gaard= "272"}
+QuestArea["Aardwolf Birthday Area"]  = {runto= "birthday", gaard= "20"}
+QuestArea["Chaprenula's Laboratory"]  = {runto= "lab", gaard= "250"}
+QuestArea["Siren's Oasis Resort"]  = {runto= "sirens", gaard= "21"}
+QuestArea["The Fire Swamp"]  = {runto= "fireswamp", gaard= "265"}
+QuestArea["The First Ascent"]  = {runto= "ascent", gaard= "289"}
+QuestArea["The Graveyard"]  = {runto= "graveyard", gaard= "23"}
+QuestArea["Den of Thieves"]  = {runto= "thieves", gaard= "25"}
+QuestArea["Giant's Pet Store"]  = {runto= "petstore", gaard= "26"}
+QuestArea["Sundered Vale"]  = {runto= "vale", gaard= "253"}
+QuestArea["The Amusement Park"]  = {runto= "amusement", gaard= "27"}
+QuestArea["The Chessboard"]  = {runto= "chessboard", gaard= "28"}
+QuestArea["Child's Play"]  = {runto= "childsplay", gaard= "30"}
+QuestArea["Dortmund"]  = {runto= "dortmund", gaard= "31"}
+QuestArea["Canyon Memorial Hospital"]  = {runto= "canyon", gaard= "254"}
+QuestArea["Fantasy Fields"]  = {runto= "fantasy", gaard= "33"}
+QuestArea["The Gauntlet"]  = {runto= "gauntlet", gaard= "36"}
+QuestArea["The Wood Elves of Nalondir"]  = {runto= "woodelves", gaard= "37"}
+QuestArea["A Magical Hodgepodge"]  = {runto= "hodgepodge", gaard= "38"}
+QuestArea["Aardwolf Zoological Park"]  = {runto= "zoo", gaard= "39"}
+QuestArea["Brightsea and Glimmerdim"]  = {runto= "glimmerdim", gaard= "326"}
+QuestArea["Cloud City of Gnomalin"]  = {runto= "gnomalin", gaard= "259"}
+QuestArea["Olde Worlde Carnivale"]  = {runto= "carnivale", gaard= "40"}
+QuestArea["The Infestation"]  = {runto= "infest", gaard= "41"}
+QuestArea["The Shadows of Minos"]  = {runto= "minos", gaard= "255"}
+QuestArea["The Town of Solan"]  = {runto= "solan", gaard= "305"}
+QuestArea["War of the Wizards"]  = {runto= "wizards", gaard= "46"}
+QuestArea["Hatchling Aerie"]  = {runto= "hatchling", gaard= "264"}
+QuestArea["Adventures in Sendhia"]  = {runto= "sendhian", gaard= "316"}
+QuestArea["Swordbreaker's Hoard"]  = {runto= "hoard", gaard= "256"}
+QuestArea["Kerofk"]  = {runto= "kerofk", gaard= "51"}
+QuestArea["The Chasm and The Catacombs"]  = {runto= "chasm", gaard= "251"}
+QuestArea["Warrior's Training Camp"]  = {runto= "wtc", gaard= "285"}
+QuestArea["All in a Fayke Day"]  = {runto= "fayke", gaard= "53"}
+QuestArea["Guardian's Spyre of Knowledge"]  = {runto= "spyreknow", gaard= "283"}
+QuestArea["Sho'aram, Castle in the Sand"]  = {runto= "sandcastle", gaard= "277"}
+QuestArea["Fort Terramire"]  = {runto= "terramire", gaard= "55"}
+QuestArea["New Thalos"]  = {runto= "newthalos", gaard= "56"}
+QuestArea["Storm Mountain"]  = {runto= "storm", gaard= "57"}
+QuestArea["Jungles of Verume"]  = {runto= "verume", gaard= "59"}
+QuestArea["Wildwood"]  = {runto= "wildwood", gaard= "317"}
+QuestArea["Dhal'Gora Outlands"]  = {runto= "dhalgora", gaard= "325"}
+QuestArea["The Temple of Shouggoth"]  = {runto= "shouggoth", gaard= "62"}
+QuestArea["Keep of the Kobaloi"]  = {runto= "kobaloi", gaard= "327"}
+QuestArea["Aerial City of Cineko"]  = {runto= "cineko", gaard= "350"}
+QuestArea["Kul Tiras"]  = {runto= "kultiras", gaard= "68"}
+QuestArea["Necromancers' Guild"]  = {runto= "necro", gaard= "69"}
+QuestArea["The UnderDark"]  = {runto= "underdark", gaard= "70"}
+QuestArea["Realm of the Zodiac"]  = {runto= "zodiac", gaard= "257"}
+QuestArea["Atlantis"]  = {runto= "atlantis", gaard= "74"}
+QuestArea["Death's Manor"]  = {runto= "manor", gaard= "72"}
+QuestArea["The Fractured Lands"]  = {runto= "fractured", gaard= "73"}
+QuestArea["Weather Observatory"]  = {runto= "weather", gaard= "299"}
+QuestArea["The Maelstrom"]  = {runto= "maelstrom", gaard= "288"}
+QuestArea["Ancient Greece"]  = {runto= "greece", gaard= "75"}
+QuestArea["Kingdom of Ahner"]  = {runto= "ahner", gaard= "76"}
+QuestArea["Thandeld's Conflict"]  = {runto= "conflict", gaard= "340"}
+QuestArea["Sheila's Cat Sanctuary"]  = {runto= "cats", gaard= "279"}
+QuestArea["Mudwog's Swamp"]  = {runto= "mudwog", gaard= "328"}
+QuestArea["Cradlebrook"]  = {runto= "cradle", gaard= "80"}
+QuestArea["The Coral Kingdom"]  = {runto= "coral", gaard= "81"}
+QuestArea["The Labyrinth"]  = {runto= "labyrinth", gaard= "82"}
+QuestArea["Gold Rush"]  = {runto= "goldrush", gaard= "83"}
+QuestArea["The Imperial City of Reme"]  = {runto= "reme", gaard= "84"}
+QuestArea["The Silver Volcano"]  = {runto= "volcano", gaard= "85"}
+QuestArea["Descent to Hell"]  = {runto= "hell", gaard= "86"}
+QuestArea["Onyx Bazaar"]  = {runto= "bazaar", gaard= "261"}
+QuestArea["The Blighted Tundra of Andarin"]  = {runto= "andarin", gaard= "300"}
+QuestArea["Diamond Soul Revelation"]  = {runto= "dsr", gaard= "88"}
+QuestArea["The Great Salt Flats"]  = {runto= "salt", gaard= "89"}
+QuestArea["Raganatittu"]  = {runto= "raga", gaard= "90"}
+QuestArea["The Darkside of the Fractured"]  = {runto= "darkside", gaard= "91"}
+QuestArea["The Wobbly Woes of Woobleville"]  = {runto= "wooble", gaard= "92"}
+QuestArea["Zangar's Demonic Grotto"]  = {runto= "zangar"}
+QuestArea["The Land of Oz"]  = {runto= "landofoz", gaard= "94"}
+QuestArea["Paradise Lost"]  = {runto= "paradise"}
+QuestArea["The Flying Citadel"]  = {runto= "citadel"}
+QuestArea["Castle Vlad-Shamir"]  = {runto= "vlad", gaard= "97"}
+QuestArea["Earth Plane 4"]  = {runto= "earthplane", gaard= "98"}
+QuestArea["The Old Cathedral"]  = {runto= "cathedral", gaard= "100"}
+QuestArea["Jenny's Tavern"]  = {runto= "jenny", gaard= "101"}
+QuestArea["Storm Ships of Lem-Dagor"]  = {runto= "lemdagor"}
+QuestArea["The Yurgach Domain"]  = {runto= "yurgach"}
+QuestArea["Hedgehogs' Paradise"]  = {runto= "hedge", gaard= "330"}
+QuestArea["Plains of Nulan'Boar"]  = {runto= "nulan", gaard= "278"}
+QuestArea["The Goblin Fortress"]  = {runto= "fortress", gaard= "104"}
+QuestArea["The Great City of Knossos"]  = {runto= "knossos"}
+QuestArea["The Killing Fields"]  = {runto= "fields"}
+QuestArea["The Palace of Song"]  = {runto= "songpalace", gaard= "319"}
+QuestArea["The Three Pillars of Diatz"]  = {runto= "diatz", gaard= "107"}
+QuestArea["Realm of Deneria"]  = {runto= "deneria", gaard= "273"}
+QuestArea["The Upper Planes"]  = {runto= "uplanes"}
+QuestArea["The DarkLight"]  = {runto= "darklight", gaard= "109"}
+QuestArea["The Ruins of Diamond Reach"]  = {runto= "ruins"}
+QuestArea["Rosewood Castle"]  = {runto= "rosewood", gaard= "111"}
+QuestArea["Imperial Nation"]  = {runto= "imperial", gaard= "112"}
+QuestArea["Aardington Estate"]  = {runto= "aardington"}
+QuestArea["The Tournament of Illoria"]  = {runto= "illoria", gaard= "113"}
+QuestArea["Wayward Alehouse"]  = {runto= "alehouse", gaard= "329"}
+QuestArea["Nenukon and the Far Country"]  = {runto= "nenukon"}
+QuestArea["The Lower Planes"]  = {runto= "lplanes"}
+QuestArea["The Relinquished Tombs"]  = {runto= "tombs"}
+QuestArea["Tai'rha Laym"]  = {runto= "laym"}
+QuestArea["The Empire of Talsa"]  = {runto= "talsa", gaard= "119"}
+QuestArea["The Fabled City of Stone"]  = {runto= "stone"}
+QuestArea["Northstar"]  = {runto= "northstar", gaard= "121"}
+QuestArea["Kobold Siege Camp"]  = {runto= "siege"}
+QuestArea["Snuckles Village"]  = {runto= "snuckles", gaard= "122"}
+QuestArea["The Gladiator's Arena"]  = {runto= "arena"}
+QuestArea["The Realm of the Hawklords"]  = {runto= "hawklord", gaard= "281"}
+QuestArea["Wedded Bliss"]  = {runto= "bliss", gaard= "124"}
+QuestArea["Anthrox"]  = {runto= "anthrox", gaard= "125"}
+QuestArea["Island of Lost Time"]  = {runto= "losttime", gaard= "127"}
+QuestArea["Realm of the Firebird"]  = {runto= "firebird", gaard= "126"}
+QuestArea["Deathtrap Dungeon"]  = {runto= "deathtrap"}
+QuestArea["Pompeii"]  = {runto= "pompeii", gaard= "129"}
+QuestArea["The Scarred Lands"]  = {runto= "scarred"}
+QuestArea["The Monastery"]  = {runto= "monastery", gaard= "131"}
+QuestArea["Dark Elf Stronghold"]  = {runto= "stronghold", gaard= "118"}
+QuestArea["Elemental Chaos"]  = {runto= "elemental", gaard= "290"}
+QuestArea["Halls of the Damned"]  = {runto= "damned"}
+QuestArea["Insanitaria"]  = {runto= "insan", gaard= "135"}
+QuestArea["Ascension Bluff Nursing Home"]  = {runto= "nursing", gaard= "347"}
+QuestArea["Dusk Valley"]  = {runto= "duskvalley", gaard= "351"}
+QuestArea["Faerie Tales"]  = {runto= "ft1", gaard= "136"}
+QuestArea["Seven Wonders"]  = {runto= "wonders"}
+QuestArea["Xyl's Mosaic"]  = {runto= "xylmos"}
+QuestArea["Prosper's Island"]  = {runto= "prosper"}
+QuestArea["Masquerade Island"]  = {runto= "masq"}
+QuestArea["Into the Long Night"]  = {runto= "longnight", gaard= "141"}
+QuestArea["Sanctity of Eternal Damnation"]  = {runto= "sanctity"}
+QuestArea["Gnoll's Quarry"]  = {runto= "quarry"}
+QuestArea["The Marshlands of Agroth"]  = {runto= "agroth", gaard= "144"}
+QuestArea["Tairayden Peninsula"]  = {runto= "peninsula", gaard= "331"}
+QuestArea["The Stuff of Shadows"]  = {runto= "stuff"}
+QuestArea["Living Mines of Dak'Tai"]  = {runto= "livingmine", gaard= "291"}
+QuestArea["Christmas Vacation"]  = {runto= "xmas", gaard= "146"}
+QuestArea["The Misty Shores of Yarr"]  = {runto= "yarr", gaard= "147"}
+QuestArea["Gilda And The Dragon"]  = {runto= "gilda", gaard= "148"}
+QuestArea["The Eighteenth Dynasty"]  = {runto= "dynasty", gaard= "149"}
+QuestArea["The Sanguine Tavern"]  = {runto= "sanguine"}
+QuestArea["Verdure Estate"]  = {runto= "verdure"}
+QuestArea["The Slaughter House"]  = {runto= "slaughter", gaard= "151"}
+QuestArea["Faerie Tales II"]  = {runto= "ftii", gaard= "153"}
+QuestArea["House of Cards"]  = {runto= "cards", gaard= "275"}
+QuestArea["The Archipelago of Entropy"]  = {runto= "entropy", gaard= "154"}
+QuestArea["The Uprising"]  = {runto= "uprising"}
+QuestArea["The Broken Halls of Horath"]  = {runto= "horath"}
+QuestArea["The School of Horror"]  = {runto= "sohtwo"}
+QuestArea["The Amazon Nation"]  = {runto= "amazon"}
+QuestArea["Tumari's Diner"]  = {runto= "diner"}
+QuestArea["The Blood Opal of Rauko'ra"]  = {runto= "raukora"}
+QuestArea["The School of Horror"]  = {runto= "soh"}
+QuestArea["Foolish Promises"]  = {runto= "promises"}
+QuestArea["The Dark Temple of Zyian"]  = {runto= "zyian"}
+QuestArea["The Drageran Empire"]  = {runto= "drageran"}
+QuestArea["Tir na nOg"]  = {runto= "tirna"}
+QuestArea["A Peaceful Giant Village"]  = {runto= "village", gaard= "164"}
+QuestArea["The Reman Conspiracy"]  = {runto= "remcon"}
+QuestArea["The Mountains of Desolation"]  = {runto= "desolation", gaard= "166"}
+QuestArea["The Desert Prison"]  = {runto= "desert"}
+QuestArea["Desert Doom"]  = {runto= "ddoom", gaard= "168"}
+QuestArea["Imagi's Nation"]  = {runto= "imagi", gaard= "360"}
+QuestArea["Nanjiki Ruins"]  = {runto= "nanjiki"}
+QuestArea["The Abyssal Caverns of Sahuagi"]  = {runto= "sahuagin"}
+QuestArea["The Cougarian Queendom"]  = {runto= "cougarian"}
+QuestArea["The Gathering Horde"]  = {runto= "gathering"}
+QuestArea["Unearthly Bonds"]  = {runto= "bonds", gaard= "171"}
+QuestArea["The Empire of Aiighialla"]  = {runto= "empire"}
+QuestArea["Takeda's Warcamp"]  = {runto= "takeda"}
+QuestArea["Arisian Realm"]  = {runto= "arisian", gaard= "174"}
+QuestArea["Winterlands"]  = {runto= "winter", gaard= "175"}
+QuestArea["Battlefields of Adaldar"]  = {runto= "adaldar"}
+QuestArea["Sagewood Grove"]  = {runto= "sagewood"}
+QuestArea["Rebellion of the Nix"]  = {runto= "rebellion"}
+QuestArea["The Cataclysm"]  = {runto= "cataclysm"}
+QuestArea["The Ruins of Stormhaven"]  = {runto= "stormhaven", gaard= "324"}
+QuestArea["Black Lagoon"]  = {runto= "lagoon"}
+QuestArea["Annwn"]  = {runto= "annwn"}
+QuestArea["Dread Tower"]  = {runto= "dread"}
+QuestArea["Helegear Sea"]  = {runto= "helegear"}
+QuestArea["The Covenant of Mistridge"]  = {runto= "mistridge"}
+QuestArea["The Witches of Omen Tor"]  = {runto= "omentor", gaard= "322"}
+QuestArea["Tribal Origins"]  = {runto= "origins"}
+QuestArea["Avian Kingdom"]  = {runto= "avian"}
+QuestArea["Empyrean, Streets of Downfall"]  = {runto= "empyrean"}
+QuestArea["Eternal Autumn"]  = {runto= "autumn"}
+QuestArea["The Glamdursil"]  = {runto= "glamdursil"}
+QuestArea["The Tree of Life"]  = {runto= "tol"}
+QuestArea["Black Rose"]  = {runto= "blackrose"}
+QuestArea["Intrigues of Times Past"]  = {runto= "times", gaard= "280"}
+QuestArea["Mount duNoir"]  = {runto= "dunoir"}
+QuestArea["The Deadlights"]  = {runto= "deadlights"}
+QuestArea["The Keep of Kearvek"]  = {runto= "kearvek", gaard= "282"}
+QuestArea["Artificer's Mayhem"]  = {runto= "mayhem"}
+QuestArea["Tanra'vea"]  = {runto= "tanra", gaard= "323"}
+QuestArea["The Astral Travels"]  = {runto= "astral"}
+QuestArea["The Blood Sanctum"]  = {runto= "sanctum"}
+QuestArea["The Nine Hells"]  = {runto= "ninehells"}
+QuestArea["The Partroxis"]  = {runto= "partroxis"}
+QuestArea["The Temple of Shal'indrael"]  = {runto= "temple", gaard= "198"}
+QuestArea["Yggdrasil: The World Tree"]  = {runto= "ygg"}
+QuestArea["Kiksaadi Cove"]  = {runto= "cove"}
+QuestArea["Entrance to Hades"]  = {runto= "hades"}
+QuestArea["Nottingham"]  = {runto= "nottingham"}
+QuestArea["The Council of the Wyrm"]  = {runto= "wyrm"}
+QuestArea["The Icy Caldera of Mauldoon"]  = {runto= "caldera"}
+QuestArea["The Trouble with Gwillimberry"]  = {runto= "gwillim"}
+QuestArea["Crynn's Church"]  = {runto= "crynn"}
+QuestArea["Umari's Castle"]  = {runto= "umari", gaard= "293"}
+QuestArea["A Genie's Last Wish"]  = {runto= "geniewish"}
+QuestArea["Afterglow"]  = {runto= "afterglow"}
+QuestArea["Andolor's Ocean Adventure Park"]  = {runto= "oceanpark"}
+QuestArea["Gypsy Caravan"]  = {runto= "caravan", gaard= "304"}
+QuestArea["Icefall"]  = {runto= "icefall"}
+QuestArea["Journey to the Inferno"]  = {runto= "inferno"}
+QuestArea["Ketu Uplands"]  = {runto= "ketu", gaard= "266"}
+QuestArea["Nebulous Horizon"]  = {runto= "horizon"}
+QuestArea["Oradrin's Chosen"]  = {runto= "oradrin"}
+QuestArea["Realm of the Sacred Flame"]  = {runto= "firenation", gaard= "287"}
+QuestArea["The Cracks of Terra"]  = {runto= "terra"}
+QuestArea["The Earth Lords"]  = {runto= "earthlords"}
+QuestArea["The Nyne Woods"]  = {runto= "nynewoods"}
+QuestArea["The Titans' Keep"]  = {runto= "titan"}
+QuestArea["The Were Wood"]  = {runto= "werewood"}
+QuestArea["Qong"]  = {runto= "qong"}
+QuestArea["Radiance Woods"]  = {runto= "radiance"}
+QuestArea["Sea King's Dominion"]  = {runto= "seaking"}
+QuestArea["The Curse of the Midnight Fens"]  = {runto= "fens"}
+QuestArea["The Dungeon of Doom"]  = {runto= "dundoom", gaard= "209"}
+QuestArea["The Realm of Infamy"]  = {runto= "infamy"}
+QuestArea["A Clearing in the Woods"]  = {runto= "romani"}
+QuestArea["Cathedral of the Elements"]  = {runto= "cabal"}
+QuestArea["Dark Temple of Zhamet"]  = {runto= "rhabdo"}
+QuestArea["Disciples of Hassan Clan Hall"]  = {runto= "doh"}
+QuestArea["Dominion Clan Area"]  = {runto= "dominion"}
+QuestArea["Isle of Anglesey"]  = {runto= "druid"}
+QuestArea["Loqui Clan Area"]  = {runto= "loqui", gaard= "217"}
+QuestArea["Masaki Clan Area"]  = {runto= "masaki"}
+QuestArea["Midgaardian Publishing House"]  = {runto= "gaardian", gaard= "219"}
+QuestArea["Old clan holding area 1"]  = {runto= "oldclanone"}
+QuestArea["Old clan holding area 2"]  = {runto= "oldclantwo"}
+QuestArea["Old clan holding area 3"]  = {runto= "oldclanthr"}
+QuestArea["Old clan holding area 4"]  = {runto= "oldclanfou"}
+QuestArea["Perdition Clan Area"]  = {runto= "perdition"}
+QuestArea["Rogues Clan Hall"]  = {runto= "rogues"}
+QuestArea["Secret Imm Project #69"]  = {runto= "wolfmaze"}
+QuestArea["The Bard Clan"]  = {runto= "bard", gaard= "226"}
+QuestArea["The Boot Camp"]  = {runto= "bootcamp"}
+QuestArea["The Children of Ba'alzamon HQ"]  = {runto= "baal"}
+QuestArea["The Collective Mind of Tao"]  = {runto= "tao"}
+QuestArea["The Crimson Horde Clan Hall"]  = {runto= "crimson"}
+QuestArea["The Crusader Clan"]  = {runto= "crusaders"}
+QuestArea["The Emerald Clan HQ"]  = {runto= "emerald", gaard= "231"}
+QuestArea["The Fortress of Knowledge"]  = {runto= "seekers"}
+QuestArea["The Halls of Retribution"]  = {runto= "retri"}
+QuestArea["The Halls of Vanir"]  = {runto= "vanir"}
+QuestArea["The Ivory City"]  = {runto= "amazonclan"}
+QuestArea["The Legendary City of Tanelorn"]  = {runto= "tanelorn", gaard= "236"}
+QuestArea["The Order of Light"]  = {runto= "light"}
+QuestArea["The Realm of Chaos"]  = {runto= "chaos"}
+QuestArea["The S.S. Hook"]  = {runto= "hook"}
+QuestArea["The Shadokil Guildhouse"]  = {runto= "shadokil"}
+QuestArea["The Stronghold of the Imperium"]  = {runto= "imperium"}
+QuestArea["The Twinlobe Clan HQ"]  = {runto= "twinlobe"}
+QuestArea["The Underground Hall"]  = {runto= "daoine", gaard= "244"}
+QuestArea["The White Dragon Clan"]  = {runto= "dragon"}
+QuestArea["The World of the Watchmen"]  = {runto= "watchmen"}
+QuestArea["The Xunti Cult"]  = {runto= "xunti"}
+QuestArea["Touchstone Cavern"]  = {runto= "touchstone"}
+QuestArea["Twilight Hall"]  = {runto= "pyre"}
 
 
 ]]>
