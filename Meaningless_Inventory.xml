@@ -133,6 +133,16 @@ BackgroundColour	= 0x000000
 TitleColour			= 0xcab9ac
 TitleColourLight	= 0xf7ebdd
 TitleColourDark		= 0xb09784
+
+ScrollBarButtonColour	= 0x39bd00
+ScrollBarButtonLight	= 0x6ade37
+ScrollBarButtonDark		= 0x438d23
+TrackColor				= 0x257b00
+TrackBorder				= 0x257b00
+GripColor				= 0x39bd00
+GripColorLight			= 0x6ade37
+GripColorDark			= 0x438d23
+
 BorderColour		= 0xcccccc
 FontColour			= 0xffffff
 DefaultWidth		= 200
@@ -153,6 +163,8 @@ TOP_MARGIN			= 5
 TITLE_MARGIN		= 3
 QTY_CHARWIDTH		= 2
 FLAG_CHARWIDTH		= 5
+SCROLLBAR_WIDTH		= 16
+NUM_ITEMS_TO_SHOW	= 20
 
 win = GetPluginID()
 
@@ -364,7 +376,51 @@ function DrawTitle()
 	
 end -- DrawTitle
 
-function DrawScrollBar()
+function DrawScrollBar(firstItemIndex)
+	-- don't do anything if inv not processed
+	if IsProcessed then
+		local processedInv = ProcessInventory()
+		local numItems = #processedInv + 1 -- 1 blank line at the bottom
+		
+		if NUM_ITEMS_TO_SHOW > numItems then
+			-- only build scroll bar if scroll needed
+			
+			local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
+			
+			local contentWindowHeight = (2 + NUM_ITEMS_TO_SHOW) * LineHeight + TOP_MARGIN * 2 -- height of window excl title
+			
+			local TrackSize = contentWindowHeight - SCROLLBAR_WIDTH * 2 -- two square up and down buttons
+			
+			local GripLength = math.floor(NUM_ITEMS_TO_SHOW / numItems * TrackSize)
+			local GripPositionFromTop = math.floor((firstItemIndex - 1) / numItems * TrackSize)
+			
+			
+			-- place all the items
+			-- scroll up button
+			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, ScrollBarButtonColour)
+			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH,
+							ScrollBarButtonLight, ScrollBarButtonDark)
+			WindowText(win, FontId, "?", width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, "0x000000", true)
+			
+			-- scroll down button
+			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH, height - SCROLLBAR_WIDTH, width, height, ScrollBarButtonColour)
+			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH, height - SCROLLBAR_WIDTH, width, height, 
+							ScrollBarButtonLight, ScrollBarButtonDark) -- bottom
+			WindowText(win, FontId, "?", width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, "0x000000", true)
+			
+			-- track
+			WindowCircleOp(win, 2, -- rectangle 
+							width - SCROLLBAR_WIDTH, minTitleHeight, width, height - SCROLLBAR_WIDTH, 
+							TrackBorder, 0, 1, -- pen color, style, width 
+							TrackColor, 10) -- brush color, style 
+			
+			-- grip
+			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH + 1, minTitleHeight + SCROLLBAR_WIDTH, width - 1, GripLength, GripColor)
+			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH + 1, minTitleHeight + SCROLLBAR_WIDTH, width - 1, GripLength,
+							GripColorLight, GripColorDark) 
+			
+		end
+	end
 
 end -- DrawScrollBar
 
@@ -384,7 +440,7 @@ function DrawWindow()
 	
 	-- resize window
 	width = contentWidth
-	height = TOP_MARGIN * 2 + (2 + #inv) * LineHeight + minTitleHeight
+	height = TOP_MARGIN * 2 + (2 + NUM_ITEMS_TO_SHOW) * LineHeight + minTitleHeight
 	
 	WindowDeleteAllHotspots(win)
 	
@@ -396,8 +452,8 @@ function DrawWindow()
 	DrawTitle()
 	
 	-- draw borders
-	WindowRectOp (win, 1, 0, 0, 0, 0, BorderColour, 15)
-	WindowRectOp (win, 1, 1, 1, -1, -1, 0x777777, 15)
+	WindowRectOp(win, 1, 0, 0, 0, 0, BorderColour, 15)
+	WindowRectOp(win, 1, 1, 1, -1, -1, 0x777777, 15)
 	
 	
 	-- draw table headers
@@ -561,16 +617,11 @@ function OnPluginClose ()
 	OnPluginDisable()
 	WindowDelete(win)
 	
-	-- disable inventory tagging
-	world.SendNoEcho("tags inv off")
-	world.SendNoEcho("invmon off")
-	
 end -- OnPluginClose
 
 function OnPluginEnable ()
 	WindowShow(win, false)
 	IsShown = false
-	
 	
 	-- enable inventory tagging
 	world.SendNoEcho("tags inv on")
@@ -874,8 +925,6 @@ AardRGB = {
 	["@x254"] = "0xe4e4e4",
 	["@x255"] = "0xeeeeee",
 }
-
-
 
 ]]>
 </script>
