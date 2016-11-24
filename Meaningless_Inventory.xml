@@ -15,6 +15,7 @@
    date_written="2016-11-21 21:35:04"
    requires="5.03"
    version="1.0"
+   save_state="y"
    >
 
 </plugin>
@@ -84,9 +85,41 @@
   >
   </trigger>
   
+  <trigger
+   enabled="y"
+   match="Tag option inv turned *"
+   omit_from_output="y"
+   name="TagToggleFeedback"
+   sequence="1"
+   group="TagGroup"
+  >
+  </trigger>
+  
+  <trigger
+   enabled="y"
+   match="You will * see inventory update tags."
+   omit_from_output="y"
+   name="InvmonToggleFeedback"
+   sequence="1"
+   group="TagGroup"
+  >
+  </trigger>
+  
+  
+  
+  
 </triggers>
 
+<aliases>
 
+  <alias
+   script="ToggleWindow"
+   match="minv"
+   enabled="y"
+   sequence="100"
+  >
+  </alias>
+</aliases>
 
 <script>
 <![CDATA[
@@ -379,12 +412,30 @@ function DrawWindow()
 	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
 	BroadcastPlugin (999, "repaint")
 	
+	WindowShow(win, true)
 	IsShown = true
 end
 
 function Scroll(direction)
 	
 end -- Scroll
+
+function ShowWindow()
+	world.SendNoEcho("invdata")
+end -- ShowWindow
+
+function HideWindow()
+	WindowShow(win, false)
+	IsShown = false
+end -- HideWindow
+
+function ToggleWindow()
+	if IsShown then
+		HideWindow()
+	else
+		ShowWindow()
+	end
+end -- ToggleWindow
 
 function AddMouseClickHotspot(hotspot_id, left, top, right, bottom, cursor)
 	if cursor == nil then
@@ -456,8 +507,8 @@ end -- SetFontInfo
 function OnPluginInstall ()
 
 	-- enable inventory tagging
-	world.Send("tags inv on")
-	world.Send("invmon on")
+	world.SendNoEcho("tags inv on")
+	world.SendNoEcho("invmon on")
 	
 	
 	-- set up windows
@@ -485,14 +536,13 @@ function OnPluginInstall ()
 		windowinfo.window_mode,
 		windowinfo.window_flags,
 		BackgroundColour))
-	WindowShow(win, true)
-	
-	DrawWindow()
+		
+	WindowShow(win, false)
 
 end -- OnPluginInstall
 
 function OnPluginDisable ()
-	WindowShow( win, false )
+	WindowShow(win, false)
 	IsShown = false
 end -- OnPluginDisable
 
@@ -502,14 +552,14 @@ function OnPluginClose ()
 end -- OnPluginClose
 
 function OnPluginEnable ()
-	WindowShow( win, true)
-
+	WindowShow(win, false)
+	IsShown = false
 end -- OnPluginEnable
 
 
 function OnPluginConnect ()
-	WindowShow( win, true)
-
+	WindowShow(win, false)
+	IsShown = false
 end -- function OnPluginConnect
 
 function OnPluginDisconnect ()
