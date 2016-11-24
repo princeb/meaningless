@@ -140,17 +140,14 @@ function strsplit(s, delim)
 end -- strsplit
 
 function ProcessInvmonTag(invmonTag)
-	local x = {}
-	for x in string.gmatch(invmonTag, "[^,]*") do
-		table.insert(x, tag)
-	end
-	invChange = {action = x[1], objectid = x[2], containerid = x[3], wearloc = x[4]}
+	local x = strsplit(invitemTag, ",")
+	local invChange = {action = x[1], objectid = x[2], containerid = x[3], wearloc = x[4]}
 	return invChange
 end -- ProcessInvmonTag
 
 function ProcessInvitemTag(invitemTag)
 	local x = strsplit(invitemTag, ",")
-	item = {objectid = x[1], flags = x[2], itemname = x[3], type = x[4], unique = x[5], wearloc = x[6], timer = x[7]}
+	local item = {objectid = x[1], flags = x[2], itemname = x[3], type = x[4], unique = x[5], wearloc = x[6], timer = x[7]}
 	
 	return item
 end -- ProcessInvitemTag
@@ -171,22 +168,277 @@ AardRGB = {
 	["@M"] = GetBoldColour(6),
 	["@W"] = GetBoldColour(8),
 	["@D"] = GetBoldColour(1),
+	["@x0"] = "0x000000",
+	["@x1"] = "0x000080",
+	["@x2"] = "0x008000",
+	["@x3"] = "0x008080",
+	["@x4"] = "0x800000",
+	["@x5"] = "0x800080",
+	["@x6"] = "0x808000",
+	["@x7"] = "0xc0c0c0",
+	["@x8"] = "0x808080",
+	["@x9"] = "0x0000ff",
+	["@x10"] = "0x00ff00",
+	["@x11"] = "0x00ffff",
+	["@x12"] = "0xff0000",
+	["@x13"] = "0xff00ff",
+	["@x14"] = "0xffff00",
+	["@x15"] = "0xffffff",
+	["@x16"] = "0x000000",
+	["@x17"] = "0x5f0000",
+	["@x18"] = "0x870000",
+	["@x19"] = "0xaf0000",
+	["@x20"] = "0xd70000",
+	["@x21"] = "0xff0000",
+	["@x22"] = "0x005f00",
+	["@x23"] = "0x5f5f00",
+	["@x24"] = "0x875f00",
+	["@x25"] = "0xaf5f00",
+	["@x26"] = "0xd75f00",
+	["@x27"] = "0xff5f00",
+	["@x28"] = "0x008700",
+	["@x29"] = "0x5f8700",
+	["@x30"] = "0x878700",
+	["@x31"] = "0xaf8700",
+	["@x32"] = "0xd78700",
+	["@x33"] = "0xff8700",
+	["@x34"] = "0x00af00",
+	["@x35"] = "0x5faf00",
+	["@x36"] = "0x87af00",
+	["@x37"] = "0xafaf00",
+	["@x38"] = "0xd7af00",
+	["@x39"] = "0xffaf00",
+	["@x40"] = "0x00d700",
+	["@x41"] = "0x5fd700",
+	["@x42"] = "0x87d700",
+	["@x43"] = "0xafd700",
+	["@x44"] = "0xd7d700",
+	["@x45"] = "0xffd700",
+	["@x46"] = "0x00ff00",
+	["@x47"] = "0x5fff00",
+	["@x48"] = "0x87ff00",
+	["@x49"] = "0xafff00",
+	["@x50"] = "0xd7ff00",
+	["@x51"] = "0xffff00",
+	["@x52"] = "0x00005f",
+	["@x53"] = "0x5f005f",
+	["@x54"] = "0x87005f",
+	["@x55"] = "0xaf005f",
+	["@x56"] = "0xd7005f",
+	["@x57"] = "0xff005f",
+	["@x58"] = "0x005f5f",
+	["@x59"] = "0x5f5f5f",
+	["@x60"] = "0x875f5f",
+	["@x61"] = "0xaf5f5f",
+	["@x62"] = "0xd75f5f",
+	["@x63"] = "0xff5f5f",
+	["@x64"] = "0x00875f",
+	["@x65"] = "0x5f875f",
+	["@x66"] = "0x87875f",
+	["@x67"] = "0xaf875f",
+	["@x68"] = "0xd7875f",
+	["@x69"] = "0xff875f",
+	["@x70"] = "0x00af5f",
+	["@x71"] = "0x5faf5f",
+	["@x72"] = "0x87af5f",
+	["@x73"] = "0xafaf5f",
+	["@x74"] = "0xd7af5f",
+	["@x75"] = "0xffaf5f",
+	["@x76"] = "0x00d75f",
+	["@x77"] = "0x5fd75f",
+	["@x78"] = "0x87d75f",
+	["@x79"] = "0xafd75f",
+	["@x80"] = "0xd7d75f",
+	["@x81"] = "0xffd75f",
+	["@x82"] = "0x00ff5f",
+	["@x83"] = "0x5fff5f",
+	["@x84"] = "0x87ff5f",
+	["@x85"] = "0xafff5f",
+	["@x86"] = "0xd7ff5f",
+	["@x87"] = "0xffff5f",
+	["@x88"] = "0x000087",
+	["@x89"] = "0x5f0087",
+	["@x90"] = "0x870087",
+	["@x91"] = "0xaf0087",
+	["@x92"] = "0xd70087",
+	["@x93"] = "0xff0087",
+	["@x94"] = "0x005f87",
+	["@x95"] = "0x5f5f87",
+	["@x96"] = "0x875f87",
+	["@x97"] = "0xaf5f87",
+	["@x98"] = "0xd75f87",
+	["@x99"] = "0xff5f87",
+	["@x100"] = "0x008787",
+	["@x101"] = "0x5f8787",
+	["@x102"] = "0x878787",
+	["@x103"] = "0xaf8787",
+	["@x104"] = "0xd78787",
+	["@x105"] = "0xff8787",
+	["@x106"] = "0x00af87",
+	["@x107"] = "0x5faf87",
+	["@x108"] = "0x87af87",
+	["@x109"] = "0xafaf87",
+	["@x110"] = "0xd7af87",
+	["@x111"] = "0xffaf87",
+	["@x112"] = "0x00d787",
+	["@x113"] = "0x5fd787",
+	["@x114"] = "0x87d787",
+	["@x115"] = "0xafd787",
+	["@x116"] = "0xd7d787",
+	["@x117"] = "0xffd787",
+	["@x118"] = "0x00ff87",
+	["@x119"] = "0x5fff87",
+	["@x120"] = "0x87ff87",
+	["@x121"] = "0xafff87",
+	["@x122"] = "0xd7ff87",
+	["@x123"] = "0xffff87",
+	["@x124"] = "0x0000af",
+	["@x125"] = "0x5f00af",
+	["@x126"] = "0x8700af",
+	["@x127"] = "0xaf00af",
+	["@x128"] = "0xd700af",
+	["@x129"] = "0xff00af",
+	["@x130"] = "0x005faf",
+	["@x131"] = "0x5f5faf",
+	["@x132"] = "0x875faf",
+	["@x133"] = "0xaf5faf",
+	["@x134"] = "0xd75faf",
+	["@x135"] = "0xff5faf",
+	["@x136"] = "0x0087af",
+	["@x137"] = "0x5f87af",
+	["@x138"] = "0x8787af",
+	["@x139"] = "0xaf87af",
+	["@x140"] = "0xd787af",
+	["@x141"] = "0xff87af",
+	["@x142"] = "0x00afaf",
+	["@x143"] = "0x5fafaf",
+	["@x144"] = "0x87afaf",
+	["@x145"] = "0xafafaf",
+	["@x146"] = "0xd7afaf",
+	["@x147"] = "0xffafaf",
+	["@x148"] = "0x00d7af",
+	["@x149"] = "0x5fd7af",
+	["@x150"] = "0x87d7af",
+	["@x151"] = "0xafd7af",
+	["@x152"] = "0xd7d7af",
+	["@x153"] = "0xffd7af",
+	["@x154"] = "0x00ffaf",
+	["@x155"] = "0x5fffaf",
+	["@x156"] = "0x87ffaf",
+	["@x157"] = "0xafffaf",
+	["@x158"] = "0xd7ffaf",
+	["@x159"] = "0xffffaf",
+	["@x160"] = "0x0000d7",
+	["@x161"] = "0x5f00d7",
+	["@x162"] = "0x8700d7",
+	["@x163"] = "0xaf00d7",
+	["@x164"] = "0xd700d7",
+	["@x165"] = "0xff00d7",
+	["@x166"] = "0x005fd7",
+	["@x167"] = "0x5f5fd7",
+	["@x168"] = "0x875fd7",
+	["@x169"] = "0xaf5fd7",
+	["@x170"] = "0xd75fd7",
+	["@x171"] = "0xff5fd7",
+	["@x172"] = "0x0087d7",
+	["@x173"] = "0x5f87d7",
+	["@x174"] = "0x8787d7",
+	["@x175"] = "0xaf87d7",
+	["@x176"] = "0xd787d7",
+	["@x177"] = "0xff87d7",
+	["@x178"] = "0x00afd7",
+	["@x179"] = "0x5fafd7",
+	["@x180"] = "0x87afd7",
+	["@x181"] = "0xafafd7",
+	["@x182"] = "0xd7afd7",
+	["@x183"] = "0xffafd7",
+	["@x184"] = "0x00d7d7",
+	["@x185"] = "0x5fd7d7",
+	["@x186"] = "0x87d7d7",
+	["@x187"] = "0xafd7d7",
+	["@x188"] = "0xd7d7d7",
+	["@x189"] = "0xffd7d7",
+	["@x190"] = "0x00ffd7",
+	["@x191"] = "0x5fffd7",
+	["@x192"] = "0x87ffd7",
+	["@x193"] = "0xafffd7",
+	["@x194"] = "0xd7ffd7",
+	["@x195"] = "0xffffd7",
+	["@x196"] = "0x0000ff",
+	["@x197"] = "0x5f00ff",
+	["@x198"] = "0x8700ff",
+	["@x199"] = "0xaf00ff",
+	["@x200"] = "0xd700ff",
+	["@x201"] = "0xff00ff",
+	["@x202"] = "0x005fff",
+	["@x203"] = "0x5f5fff",
+	["@x204"] = "0x875fff",
+	["@x205"] = "0xaf5fff",
+	["@x206"] = "0xd75fff",
+	["@x207"] = "0xff5fff",
+	["@x208"] = "0x0087ff",
+	["@x209"] = "0x5f87ff",
+	["@x210"] = "0x8787ff",
+	["@x211"] = "0xaf87ff",
+	["@x212"] = "0xd787ff",
+	["@x213"] = "0xff87ff",
+	["@x214"] = "0x00afff",
+	["@x215"] = "0x5fafff",
+	["@x216"] = "0x87afff",
+	["@x217"] = "0xafafff",
+	["@x218"] = "0xd7afff",
+	["@x219"] = "0xffafff",
+	["@x220"] = "0x00d7ff",
+	["@x221"] = "0x5fd7ff",
+	["@x222"] = "0x87d7ff",
+	["@x223"] = "0xafd7ff",
+	["@x224"] = "0xd7d7ff",
+	["@x225"] = "0xffd7ff",
+	["@x226"] = "0x00ffff",
+	["@x227"] = "0x5fffff",
+	["@x228"] = "0x87ffff",
+	["@x229"] = "0xafffff",
+	["@x230"] = "0xd7ffff",
+	["@x231"] = "0xffffff",
+	["@x232"] = "0x080808",
+	["@x233"] = "0x121212",
+	["@x234"] = "0x1c1c1c",
+	["@x235"] = "0x262626",
+	["@x236"] = "0x303030",
+	["@x237"] = "0x3a3a3a",
+	["@x238"] = "0x444444",
+	["@x239"] = "0x4e4e4e",
+	["@x240"] = "0x585858",
+	["@x241"] = "0x606060",
+	["@x242"] = "0x666666",
+	["@x243"] = "0x767676",
+	["@x244"] = "0x808080",
+	["@x245"] = "0x8a8a8a",
+	["@x246"] = "0x949494",
+	["@x247"] = "0x9e9e9e",
+	["@x248"] = "0xa8a8a8",
+	["@x249"] = "0xb2b2b2",
+	["@x250"] = "0xbcbcbc",
+	["@x251"] = "0xc6c6c6",
+	["@x252"] = "0xd0d0d0",
+	["@x253"] = "0xdadada",
+	["@x254"] = "0xe4e4e4",
+	["@x255"] = "0xeeeeee",
 }
 
 function ColourText(win, text, left, top, right, bottom)
-	local colorText = processColourText(text)
+	local colourText = processColourText(text)
 	local textwidth = 0
-	for i, v in ipairs(colorText) do
-		print(v.label)
-		textwidth = textwidth + WindowText(win, FontId, v.label, left + textwidth, top, right, bottom, v.color)
+	for i, v in ipairs(colourText) do
+		textwidth = textwidth + WindowText(win, FontId, v.label, left + textwidth, top, right, bottom, v.colour)
 	end
 	return textwidth
 end -- ColourText
 
 function ColourTextWidth(win, text, unicode)
-	local colorText = processColourText(text)
+	local colourText = processColourText(text)
 	local textwidth = 0
-	for i, v in ipairs(colorText) do
+	for i, v in ipairs(colourText) do
 		textwidth = textwidth + WindowTextWidth(win, FontId, v.label, unicode)
 	end
 	return textwidth
@@ -197,7 +449,7 @@ function FormattedInv()
 	for i, v in ipairs(InvData) do
 		found = false
 		for k, w in ipairs(invtab) do
-			if v.itemname == w.itemname then
+			if v.itemname == w.name and v.flags == w.flags then
 				w.quantity = w.quantity + 1
 				found = true
 			end
@@ -209,39 +461,57 @@ function FormattedInv()
 	return invtab
 end --FormattedInv
 
+
 function processColourText(text)
 	local textTable = {}
-	local color = ""
+	local colour = ""
+	local possibleColour = ""
 	local label = ""
 	local atSignOn = false
 	local xtermOn = false
+	local xtermCount = 1
 	for c = 1, #text do
 		local i = text:sub(c,c)
 		if i == "@" and not atSignOn then
 			atSignOn = true
-		elseif (not xtermOn) and atSignOn then
-			if i == "@" then -- this is a "@" char
-				label = label .. i
-				atSignOn = false
-			elseif i == "x" then -- this is xterm color "@x123" https://upload.wikimedia.org/wikipedia/commons/9/95/Xterm_color_chart.png
+		elseif atSignOn then
+			if i == "x" then -- xterm colour
 				xtermOn = true
-				color = "@x"
-			else -- start of new color segment
-				if label ~= "" then
-					table.insert(textTable, {label = label, color = AardRGB[(color == "") and "@w" or color]})
+				possibleColour = "@x"
+			elseif xtermOn then -- continue parsing x colour
+				if xtermCount <= 3 and string.match(i, "%d") ~= nil then -- is digit and still under xterm length
+					possibleColour = possibleColour .. i
+					xtermCount = xtermCount + 1
+				else -- end of xterm, looks like a color, send buffer to table and reset buffer
+					xtermOn = false
+					atSignOn = false
+					xtermCount = 1
+					
+					if label ~= "" then
+						table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
+					end
+					colour = possibleColour
+					label = i
+					possibleColour = ""
 				end
-				color = "@" .. i
+			elseif i == "@" then -- @ char
+				atSignOn = false
+				label = label .. "@"
+				state = "state 4"
+			else -- ansi colour, get ansi char and terminate
+				if label ~= "" then
+					table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
+				end
 				label = ""
+				colour = "@" .. i
 				atSignOn = false
 			end
-		elseif xtermOn then
-			
 		else
 			label = label .. i
 		end
 	end
 	if label ~= "" then
-		table.insert(textTable, {label = label, color = AardRGB[(color == "") and "@w" or color]})
+		table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
 	end
 	return textTable
 end -- processColourText
@@ -257,17 +527,38 @@ function ProcessInventory(name, line, wildcards, styles)
 	end
 end -- ProcessInventory
 
+function PrintInventoryLine(item, top)
+
+	-- quantity
+	WindowText(win, FontId, item.quantity, LEFT_MARGIN, top, 0, 0, AardRGB["@w"])
+	
+	-- flags
+	local flagColour = {
+	["K"] = AardRGB["@R"],
+	["M"] = AardRGB["@B"],
+	["G"] = AardRGB["@W"],
+	["H"] = AardRGB["@C"],
+	["I"] = AardRGB["@w"],
+	}
+	for i = 1, #item.flags do
+		local f = item.flags:sub(i,i)
+		WindowText(win, FontId, f, LEFT_MARGIN + FontWidth * (4 + i - 1) , top, 0, 0, 
+			(flagColour[f] == nil) and AardRGB["@w"] or flagColour[f]) -- colour
+	end
+	
+	-- name
+	left = left + ColourText(win, item.name, LEFT_MARGIN + FontWidth * 10, top, 0, 0)
+	
+end -- PrintInventoryLine
+
 function DrawTitle()
-	-- draw title
-	minTitleWidth = 4 + TITLE_MARGIN * 2 + WindowTextWidth(win, FontId, "QuestMaster", false) -- 4 is the number of pixels of the border
-	minTitleHeight = TITLE_MARGIN * 2 + LineHeight -- remove 2 pix for the upper/lower space for rendering accents
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 	
 	-- draw title
 	WindowRectOp(win, 2, 1, 1, -1, minTitleHeight, TitleColour) -- title
 	WindowRectOp(win, 4, 1, 1, -1, minTitleHeight, TitleColourLight, TitleColourDark) -- title border
 	WindowText(win, FontId, "Inventory", TITLE_MARGIN + 2, TITLE_MARGIN, 0, 0, 0x000000) -- title text
 	
-	return minTitleWidth, minTitleHeight
 end -- DrawTitle
 
 function DrawScrollBar()
@@ -275,23 +566,22 @@ function DrawScrollBar()
 end -- DrawScrollBar
 
 function DrawWindow()
-
-	minTitleWidth, minTitleHeight = DrawTitle()
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 	
 	-- get window size
-	contentHeight = TOP_MARGIN * 2
-	contentWidth = 0
+	local contentHeight = TOP_MARGIN * 2
+	local contentWidth = DefaultWidth
 	local inv = FormattedInv()
 	for i, v in ipairs(inv) do
 		top = TOP_MARGIN + (i-1) * LineHeight
-		left = LEFT_MARGIN * 2 + WindowTextWidth(win, FontId, "     ", false) + ColourTextWidth(win, v.name, false)  + WindowTextWidth(win, FontId, v.flags, false)
-		contentHeight = contentHeight + top
+		left = LEFT_MARGIN * 2 + FontWidth * 10 + 
+				ColourTextWidth(win, v.name, false)
 		contentWidth = math.max(contentWidth, left)
-	end 
+	end
 	
 	-- resize window
-	width = math.max(contentWidth, minTitleWidth)
-	height = contentHeight + minTitleHeight
+	width = contentWidth
+	height = TOP_MARGIN * 2 + #inv * LineHeight + minTitleHeight
 	
 	WindowDeleteAllHotspots(win)
 	
@@ -300,17 +590,16 @@ function DrawWindow()
 	-- draw window
 	WindowRectOp(win, 2, 0, minTitleHeight, 0, 0, BackgroundColour) -- blank 
 	
+	DrawTitle()
+	
 	-- draw borders
 	WindowRectOp (win, 1, 0, 0, 0, 0, BorderColour, 15)
 	WindowRectOp (win, 1, 1, 1, -1, -1, 0x777777, 15)
 	
 	-- add content to window
 	for i, v in ipairs(inv) do
-		top = TOP_MARGIN + (i-1) * LineHeight
-		left = LEFT_MARGIN * 2 + WindowText(win, FontId, v.quantity, left, top, 0, 0, AardRGB["@w"])
-		left = left + WindowText(win, FontId, v.flags, left, top, 0, 0, AardRGB["@w"])
-		left = left + ColourText(win, v.name, left, top, 0, 0)
-		print(v.quantity .. " " .. v.flags .. " " .. v.name)
+		top = minTitleHeight + TOP_MARGIN + (i-1) * LineHeight
+		PrintInventoryLine(v, top)
 	end 
 
 	CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win) -- fail silently
@@ -474,6 +763,21 @@ end -- function OnPluginSaveState
 ]]>
 </script>
 
+
+<script>
+<![CDATA[
+
+function colorRegex(text) -- doesn't work in lua. ext libs no tks
+	if text:sub(1,1) ~= "@" then
+		text = "@w" .. text
+	end
+	local tb = {}
+	for x,y in string.gmatch(text, "(@[BbRrGgYyCcMmWwD]|@x[0-9]{1,3})([%w%s]+)") do
+		table.insert(tb, {text = y, colour = x})
+	end
+end -- colorRegex
+]]>
+</script>
 
 
 </muclient>
