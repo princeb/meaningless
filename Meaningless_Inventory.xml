@@ -60,29 +60,30 @@
   >
   </trigger>
   
-  <!--
   <trigger
-   enabled="n"
-   match="{invmon}"
+   enabled="y"
+   match="^{invmon}.+"
+   regexp="y"
    script="InventoryChange"
    omit_from_output="y"
-   name="InventoryChange"
-   sequence="100"
+   name="InvMonTrigger"
+   sequence="200"
+  >
+  </trigger>
+  
+  
+  <trigger
+   enabled="y"
+   match="^{invitem}.+"
+   regexp="y"
+   script="ProcessItemInfoTag"
+   omit_from_output="y"
+   name="ItemTagTrigger"
+   sequence="1"
    group="InventoryGroup"
   >
   </trigger>
   
-  <trigger
-   enabled="n"
-   match="{invitem}"
-   script="InventoryItemInfo"
-   omit_from_output="y"
-   name="InventoryItem"
-   sequence="100"
-   group="InventoryGroup"
-  >
-  </trigger>
-  -->
 </triggers>
 
 
@@ -109,9 +110,12 @@ DefaultHeight		= 150
 DefaultX			= 50
 DefaultY			= 250
 DefaultFontSize		= 9
-DefaultFontName		= "Consolas"		
+DefaultFontName		= "Consolas"
+IsShown				= false
+IsProcessed			= false
 
 InvData = {}
+InvmonHolding = {}
 
 -- constants -- 
 LEFT_MARGIN			= 10
@@ -120,7 +124,7 @@ TITLE_MARGIN		= 3
 
 win = GetPluginID()
 
-function strsplit(s, delim)
+function strsplit(s, delim) -- gmatch can't split consec delims "a,b,,d" into {"a","b","","d"}
 	local tab = {}
 	local buffer = ""
 	for i = 1, #s do
@@ -140,7 +144,7 @@ function strsplit(s, delim)
 end -- strsplit
 
 function ProcessInvmonTag(invmonTag)
-	local x = strsplit(invitemTag, ",")
+	local x = strsplit(invmonTag, ",")
 	local invChange = {action = x[1], objectid = x[2], containerid = x[3], wearloc = x[4]}
 	return invChange
 end -- ProcessInvmonTag
@@ -151,6 +155,382 @@ function ProcessInvitemTag(invitemTag)
 	
 	return item
 end -- ProcessInvitemTag
+
+function ColourText(win, text, left, top, right, bottom)
+	local colourText = processColourText(text)
+	local textwidth = 0
+	for i, v in ipairs(colourText) do
+		textwidth = textwidth + WindowText(win, FontId, v.label, left + textwidth, top, right, bottom, v.colour)
+	end
+	return textwidth
+end -- ColourText
+
+function ColourTextWidth(win, text, unicode)
+	local colourText = processColourText(text)
+	local textwidth = 0
+	for i, v in ipairs(colourText) do
+		textwidth = textwidth + WindowTextWidth(win, FontId, v.label, unicode)
+	end
+	return textwidth
+end -- ColourText
+
+function FormattedInv()
+	local invtab = {}
+	for i, v in ipairs(InvData) do
+		found = false
+		for k, w in ipairs(invtab) do
+			if v.itemname == w.name and v.flags == w.flags then
+				w.quantity = w.quantity + 1
+				found = true
+			end
+		end
+		if not found then
+			table.insert(invtab, {name = v.itemname, quantity = 1, flags = v.flags})
+		end
+	end
+	IsProcessed = true
+	return invtab
+end --FormattedInv
+
+
+function processColourText(text)
+	local textTable = {}
+	local colour = ""
+	local possibleColour = ""
+	local label = ""
+	local atSignOn = false
+	local xtermOn = false
+	local xtermCount = 1
+	for c = 1, #text do
+		local i = text:sub(c,c)
+		if i == "@" and not atSignOn then
+			atSignOn = true
+		elseif atSignOn then
+			if i == "x" then -- xterm colour
+				xtermOn = true
+				possibleColour = "@x"
+			elseif xtermOn then -- continue parsing x colour
+				if xtermCount <= 3 and string.match(i, "%d") ~= nil then -- is digit and still under xterm length
+					possibleColour = possibleColour .. i
+					xtermCount = xtermCount + 1
+				else -- end of xterm, looks like a color, send buffer to table and reset buffer
+					xtermOn = false
+					atSignOn = false
+					xtermCount = 1
+					
+					if label ~= "" then
+						table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
+					end
+					colour = possibleColour
+					label = i
+					possibleColour = ""
+				end
+			elseif i == "@" then -- @ char
+				atSignOn = false
+				label = label .. "@"
+				state = "state 4"
+			else -- ansi colour, get ansi char and terminate
+				if label ~= "" then
+					table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
+				end
+				label = ""
+				colour = "@" .. i
+				atSignOn = false
+			end
+		else
+			label = label .. i
+		end
+	end
+	if label ~= "" then
+		table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
+	end
+	return textTable
+end -- processColourText
+
+function ProcessInventory(name, line, wildcards, styles)
+	if name == "InventoryStart" then
+		InvData = {}
+		EnableTrigger("InventoryLines", true)
+	elseif name == "InventoryEnd" then
+		EnableTrigger("InventoryLines", false)
+		DrawWindow() -- captured all the info now draw window
+	elseif name == "InventoryLines" then
+		table.insert(InvData, ProcessInvitemTag(line))
+	end
+end -- ProcessInventory
+
+function InventoryChange(name, line, wildcards, styles)
+	-- don't do anything if inventory is not shown or prepared
+	if IsShown and IsProcessed then
+		-- strip out {invmon} from line
+		local invmon = string.gsub(line, "{invmon}", "")
+		local invChange = ProcessInvmonTag(invmon)
+		if invChange.action == "2" or invChange.action == "3" or invChange.action == "6"
+			or invChange.action == "7" or invChange.action == "9" or invChange.action == "11" then
+			-- moved into inv from somewhere else
+			for i, v in ipairs(InvData) do
+				if v.objectid == invChange.objectid then
+					table.remove(InvData, i)
+				end
+			end
+		else
+			-- this covers all the other cases of moving item into inv
+			for i, v in pairs(InvmonHolding) do
+				if invChange.objectid == v.objectid then
+					table.insert(InvData, v)
+				end
+			end
+			InvmonHolding = {}
+		end
+		DrawWindow()
+	end
+end -- InventoryChange
+
+function ProcessItemInfoTag(name, line, wildcards, styles)
+	-- don't do anything if inventory is not shown or prepared
+	if IsShown and IsProcessed then
+		-- strip out {invitem} from line
+		local itemtag = string.gsub(line, "{invitem}", "")
+		table.insert(InvmonHolding, ProcessInvitemTag(itemtag))
+		-- put it in a holding table first and allow the invmon trigger to add it into inventory
+	end
+	print("itemtag trigger complete")
+end -- ProcessItemInfoTag
+
+function PrintInventoryLine(item, top)
+
+	-- quantity
+	WindowText(win, FontId, item.quantity, LEFT_MARGIN, top, 0, 0, AardRGB["@w"])
+	
+	-- flags
+	local flagColour = {
+	["K"] = AardRGB["@R"],
+	["M"] = AardRGB["@B"],
+	["G"] = AardRGB["@W"],
+	["H"] = AardRGB["@C"],
+	["I"] = AardRGB["@w"],
+	}
+	for i = 1, #item.flags do
+		local f = item.flags:sub(i,i)
+		WindowText(win, FontId, f, LEFT_MARGIN + FontWidth * (4 + i - 1) , top, 0, 0, 
+			(flagColour[f] == nil) and AardRGB["@w"] or flagColour[f]) -- colour
+	end
+	
+	-- name
+	left = left + ColourText(win, item.name, LEFT_MARGIN + FontWidth * 10, top, 0, 0)
+	
+end -- PrintInventoryLine
+
+function DrawTitle()
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
+	
+	-- draw title
+	WindowRectOp(win, 2, 1, 1, -1, minTitleHeight, TitleColour) -- title
+	WindowRectOp(win, 4, 1, 1, -1, minTitleHeight, TitleColourLight, TitleColourDark) -- title border
+	WindowText(win, FontId, "Inventory", TITLE_MARGIN + 2, TITLE_MARGIN, 0, 0, 0x000000) -- title text
+	
+end -- DrawTitle
+
+function DrawScrollBar()
+
+end -- DrawScrollBar
+
+function DrawWindow()
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
+	
+	-- get window size
+	local contentHeight = TOP_MARGIN * 2
+	local contentWidth = DefaultWidth
+	local inv = FormattedInv()
+	for i, v in ipairs(inv) do
+		top = TOP_MARGIN + (i-1) * LineHeight
+		left = LEFT_MARGIN * 2 + FontWidth * 10 + 
+				ColourTextWidth(win, v.name, false)
+		contentWidth = math.max(contentWidth, left)
+	end
+	
+	-- resize window
+	width = contentWidth
+	height = TOP_MARGIN * 2 + #inv * LineHeight + minTitleHeight
+	
+	WindowDeleteAllHotspots(win)
+	
+	WindowResize(win, width, height, BackgroundColour)
+	
+	-- draw window
+	WindowRectOp(win, 2, 0, minTitleHeight, 0, 0, BackgroundColour) -- blank 
+	
+	DrawTitle()
+	
+	-- draw borders
+	WindowRectOp (win, 1, 0, 0, 0, 0, BorderColour, 15)
+	WindowRectOp (win, 1, 1, 1, -1, -1, 0x777777, 15)
+	
+	-- add content to window
+	for i, v in ipairs(inv) do
+		top = minTitleHeight + TOP_MARGIN + (i-1) * LineHeight
+		PrintInventoryLine(v, top)
+	end 
+
+	CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win) -- fail silently
+	
+	-- Add the drag handler so they can move the window around
+	movewindow.add_drag_handler (win, 1, 1, -1, minTitleHeight, 1) -- drag the title
+	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
+	BroadcastPlugin (999, "repaint")
+	
+	IsShown = true
+end
+
+function Scroll(direction)
+	
+end -- Scroll
+
+function AddMouseClickHotspot(hotspot_id, left, top, right, bottom, cursor)
+	if cursor == nil then
+		cursor = 0
+	end 
+	WindowAddHotspot(win, hotspot_id,  
+		left, top, right, bottom,        -- rectangle
+		"",        -- MouseOver
+		"",  -- CancelMouseOver
+		"",        -- MouseDown
+		"",  -- CancelMouseDown
+		"MouseUp",          -- MouseUp
+		"",  -- tooltip text
+		cursor, -- cursor
+		0)  -- flags
+end -- AddMouseClickHotspot
+
+function OnPluginBroadcast (msg, id, name, text)
+	if id == '3e7dedbe37e44942dd46d264' then -- aard gmcp handler
+		-- pass
+	elseif (id == "462b665ecb569efbf261422f" and msg==996 and text == "re-register z") then
+		CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win)
+	end
+end -- OnPluginBroadcast
+
+function RightClickMenu()
+	selection = WindowMenu(win, WindowInfo(win, 14), WindowInfo(win, 15),
+							"Change Font | - | Bring To Front | Send To Back")
+	
+	if selection == "Bring To Front" then
+		CallPlugin("462b665ecb569efbf261422f","boostMe", win)
+	elseif selection == "Send To Back" then
+		CallPlugin("462b665ecb569efbf261422f","dropMe", win)
+	elseif selection == "Change Font" then
+		selectedFont = utils.fontpicker (FontName, FontSize) --font dialog
+		if selectedFont then
+			FontName = selectedFont.name
+			FontSize = selectedFont.size
+			SetVariable("FontName", FontName)
+			SetVariable("FontSize", FontSize)
+			movewindow.save_state(win)
+			SetFontInfo()
+			DrawWindow()
+		end
+	end
+end -- RightClickMenu
+
+function MouseUp(flags, hotspot_id, win)
+	if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 and hotspot_id == "RightClickHotSpot" then
+		RightClickMenu()
+	end
+	return true
+end
+
+function LeftClickOnly(flags, hotspot_id, win)
+   if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 then
+      return true
+   end
+   return false
+end
+
+function SetFontInfo()
+	WindowFont(win, FontId, FontName, FontSize, false, false, false, false) --- Grab font size settings.
+	FontHeight = WindowFontInfo (win, FontId, 1) - WindowFontInfo (win, FontId, 4) + 1 -- height
+	FontWidth  = WindowFontInfo (win, FontId, 6)  -- avg width
+	LineHeight = FontHeight + 1
+end -- SetFontInfo
+
+function OnPluginInstall ()
+
+	-- enable inventory tagging
+	world.Send("tags inv on")
+	world.Send("invmon on")
+	
+	
+	-- set up windows
+	WindowCreate (win, 600, 600, 1, 1, 0, 0, BackgroundColour) 
+
+	FontId        = "Inventory_font"
+	local fonts = utils.getfontfamilies()
+	FontName = GetVariable("FontName") or DefaultFontName
+	FontSize = tonumber(GetVariable("FontSize")) or DefaultFontSize
+	
+	SetFontInfo()
+
+	--- Pull some state variables.
+	BackgroundColour = tonumber(GetVariable ("BackgroundColour")) or BackgroundColour
+	height = tonumber(GetVariable ("height")) or DefaultHeight
+	width = tonumber(GetVariable ("width")) or DefaultWidth
+
+	--- install the window movement handler, get back the window position.
+	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=DefaultX, y=DefaultY})
+
+	--- Setup the window
+	check(WindowCreate(win, 
+		windowinfo.window_left, windowinfo.window_top,
+		width, height,
+		windowinfo.window_mode,
+		windowinfo.window_flags,
+		BackgroundColour))
+	WindowShow(win, true)
+	
+	DrawWindow()
+
+end -- OnPluginInstall
+
+function OnPluginDisable ()
+	WindowShow( win, false )
+	IsShown = false
+end -- OnPluginDisable
+
+function OnPluginClose ()
+	OnPluginDisable()
+	WindowDelete(win)
+end -- OnPluginClose
+
+function OnPluginEnable ()
+	WindowShow( win, true)
+
+end -- OnPluginEnable
+
+
+function OnPluginConnect ()
+	WindowShow( win, true)
+
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+end -- function OnPluginConnect
+
+function OnPluginListChanged ()
+	do_plugin_check_now ("abc1a0944ae4af7586ce88dc", "aard_repaint_buffer") -- check we have the repaint buffer plugin
+	do_plugin_check_now ("3e7dedbe37e44942dd46d264", "aard_GMCP_handler")    -- check we have GMCP plugin
+	do_plugin_check_now ("462b665ecb569efbf261422f", "aard_miniwindow_z_order_monitor") -- check we have z order plugin
+end
+
+function OnPluginSaveState ()
+	-- save window current location for next time  
+	movewindow.save_state (win)
+	SetVariable ("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
+	SetVariable ("FontName", FontName)
+	SetVariable ("FontSize", FontSize)
+end -- function OnPluginSaveState
+
+
 
 AardRGB = {
 	["@b"] = GetNormalColour(5),
@@ -426,339 +806,7 @@ AardRGB = {
 	["@x255"] = "0xeeeeee",
 }
 
-function ColourText(win, text, left, top, right, bottom)
-	local colourText = processColourText(text)
-	local textwidth = 0
-	for i, v in ipairs(colourText) do
-		textwidth = textwidth + WindowText(win, FontId, v.label, left + textwidth, top, right, bottom, v.colour)
-	end
-	return textwidth
-end -- ColourText
 
-function ColourTextWidth(win, text, unicode)
-	local colourText = processColourText(text)
-	local textwidth = 0
-	for i, v in ipairs(colourText) do
-		textwidth = textwidth + WindowTextWidth(win, FontId, v.label, unicode)
-	end
-	return textwidth
-end -- ColourText
-
-function FormattedInv()
-	local invtab = {}
-	for i, v in ipairs(InvData) do
-		found = false
-		for k, w in ipairs(invtab) do
-			if v.itemname == w.name and v.flags == w.flags then
-				w.quantity = w.quantity + 1
-				found = true
-			end
-		end
-		if not found then
-			table.insert(invtab, {name = v.itemname, quantity = 1, flags = v.flags})
-		end
-	end
-	return invtab
-end --FormattedInv
-
-
-function processColourText(text)
-	local textTable = {}
-	local colour = ""
-	local possibleColour = ""
-	local label = ""
-	local atSignOn = false
-	local xtermOn = false
-	local xtermCount = 1
-	for c = 1, #text do
-		local i = text:sub(c,c)
-		if i == "@" and not atSignOn then
-			atSignOn = true
-		elseif atSignOn then
-			if i == "x" then -- xterm colour
-				xtermOn = true
-				possibleColour = "@x"
-			elseif xtermOn then -- continue parsing x colour
-				if xtermCount <= 3 and string.match(i, "%d") ~= nil then -- is digit and still under xterm length
-					possibleColour = possibleColour .. i
-					xtermCount = xtermCount + 1
-				else -- end of xterm, looks like a color, send buffer to table and reset buffer
-					xtermOn = false
-					atSignOn = false
-					xtermCount = 1
-					
-					if label ~= "" then
-						table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
-					end
-					colour = possibleColour
-					label = i
-					possibleColour = ""
-				end
-			elseif i == "@" then -- @ char
-				atSignOn = false
-				label = label .. "@"
-				state = "state 4"
-			else -- ansi colour, get ansi char and terminate
-				if label ~= "" then
-					table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
-				end
-				label = ""
-				colour = "@" .. i
-				atSignOn = false
-			end
-		else
-			label = label .. i
-		end
-	end
-	if label ~= "" then
-		table.insert(textTable, {label = label, colour = AardRGB[(colour == "") and "@w" or colour]})
-	end
-	return textTable
-end -- processColourText
-
-function ProcessInventory(name, line, wildcards, styles)
-	if name == "InventoryStart" then
-		EnableTrigger("InventoryLines", true)
-	elseif name == "InventoryEnd" then
-		EnableTrigger("InventoryLines", false)
-		DrawWindow() -- captured all the info now draw window
-	elseif name == "InventoryLines" then
-		table.insert(InvData, ProcessInvitemTag(line))
-	end
-end -- ProcessInventory
-
-function PrintInventoryLine(item, top)
-
-	-- quantity
-	WindowText(win, FontId, item.quantity, LEFT_MARGIN, top, 0, 0, AardRGB["@w"])
-	
-	-- flags
-	local flagColour = {
-	["K"] = AardRGB["@R"],
-	["M"] = AardRGB["@B"],
-	["G"] = AardRGB["@W"],
-	["H"] = AardRGB["@C"],
-	["I"] = AardRGB["@w"],
-	}
-	for i = 1, #item.flags do
-		local f = item.flags:sub(i,i)
-		WindowText(win, FontId, f, LEFT_MARGIN + FontWidth * (4 + i - 1) , top, 0, 0, 
-			(flagColour[f] == nil) and AardRGB["@w"] or flagColour[f]) -- colour
-	end
-	
-	-- name
-	left = left + ColourText(win, item.name, LEFT_MARGIN + FontWidth * 10, top, 0, 0)
-	
-end -- PrintInventoryLine
-
-function DrawTitle()
-	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
-	
-	-- draw title
-	WindowRectOp(win, 2, 1, 1, -1, minTitleHeight, TitleColour) -- title
-	WindowRectOp(win, 4, 1, 1, -1, minTitleHeight, TitleColourLight, TitleColourDark) -- title border
-	WindowText(win, FontId, "Inventory", TITLE_MARGIN + 2, TITLE_MARGIN, 0, 0, 0x000000) -- title text
-	
-end -- DrawTitle
-
-function DrawScrollBar()
-
-end -- DrawScrollBar
-
-function DrawWindow()
-	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
-	
-	-- get window size
-	local contentHeight = TOP_MARGIN * 2
-	local contentWidth = DefaultWidth
-	local inv = FormattedInv()
-	for i, v in ipairs(inv) do
-		top = TOP_MARGIN + (i-1) * LineHeight
-		left = LEFT_MARGIN * 2 + FontWidth * 10 + 
-				ColourTextWidth(win, v.name, false)
-		contentWidth = math.max(contentWidth, left)
-	end
-	
-	-- resize window
-	width = contentWidth
-	height = TOP_MARGIN * 2 + #inv * LineHeight + minTitleHeight
-	
-	WindowDeleteAllHotspots(win)
-	
-	WindowResize(win, width, height, BackgroundColour)
-	
-	-- draw window
-	WindowRectOp(win, 2, 0, minTitleHeight, 0, 0, BackgroundColour) -- blank 
-	
-	DrawTitle()
-	
-	-- draw borders
-	WindowRectOp (win, 1, 0, 0, 0, 0, BorderColour, 15)
-	WindowRectOp (win, 1, 1, 1, -1, -1, 0x777777, 15)
-	
-	-- add content to window
-	for i, v in ipairs(inv) do
-		top = minTitleHeight + TOP_MARGIN + (i-1) * LineHeight
-		PrintInventoryLine(v, top)
-	end 
-
-	CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win) -- fail silently
-	
-	-- Add the drag handler so they can move the window around
-	movewindow.add_drag_handler (win, 1, 1, -1, minTitleHeight, 1) -- drag the title
-	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
-	BroadcastPlugin (999, "repaint")
-end
-
-function Scroll(direction)
-	
-end -- Scroll
-
-function AddMouseClickHotspot(hotspot_id, left, top, right, bottom, cursor)
-	if cursor == nil then
-		cursor = 0
-	end 
-	WindowAddHotspot(win, hotspot_id,  
-		left, top, right, bottom,        -- rectangle
-		"",        -- MouseOver
-		"",  -- CancelMouseOver
-		"",        -- MouseDown
-		"",  -- CancelMouseDown
-		"MouseUp",          -- MouseUp
-		"",  -- tooltip text
-		cursor, -- cursor
-		0)  -- flags
-end -- AddMouseClickHotspot
-
-function OnPluginBroadcast (msg, id, name, text)
-	if id == '3e7dedbe37e44942dd46d264' then -- aard gmcp handler
-		-- pass
-	elseif (id == "462b665ecb569efbf261422f" and msg==996 and text == "re-register z") then
-		CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win)
-	end
-end -- OnPluginBroadcast
-
-function RightClickMenu()
-	selection = WindowMenu(win, WindowInfo(win, 14), WindowInfo(win, 15),
-							"Change Font | - | Bring To Front | Send To Back")
-	
-	if selection == "Bring To Front" then
-		CallPlugin("462b665ecb569efbf261422f","boostMe", win)
-	elseif selection == "Send To Back" then
-		CallPlugin("462b665ecb569efbf261422f","dropMe", win)
-	elseif selection == "Change Font" then
-		selectedFont = utils.fontpicker (FontName, FontSize) --font dialog
-		if selectedFont then
-			FontName = selectedFont.name
-			FontSize = selectedFont.size
-			SetVariable("FontName", FontName)
-			SetVariable("FontSize", FontSize)
-			movewindow.save_state(win)
-			SetFontInfo()
-			DrawWindow()
-		end
-	end
-end -- RightClickMenu
-
-function MouseUp(flags, hotspot_id, win)
-	if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 and hotspot_id == "RightClickHotSpot" then
-		RightClickMenu()
-	end
-	return true
-end
-
-function LeftClickOnly(flags, hotspot_id, win)
-   if bit.band (flags, miniwin.hotspot_got_rh_mouse) ~= 0 then
-      return true
-   end
-   return false
-end
-
-function SetFontInfo()
-	WindowFont(win, FontId, FontName, FontSize, false, false, false, false) --- Grab font size settings.
-	FontHeight = WindowFontInfo (win, FontId, 1) - WindowFontInfo (win, FontId, 4) + 1 -- height
-	FontWidth  = WindowFontInfo (win, FontId, 6)  -- avg width
-	LineHeight = FontHeight + 1
-end -- SetFontInfo
-
-function OnPluginInstall ()
-
-	-- enable inventory tagging
-	world.Send("tags inv on")
-	world.Send("invmon on")
-	
-	
-	-- set up windows
-	WindowCreate (win, 600, 600, 1, 1, 0, 0, BackgroundColour) 
-
-	FontId        = "Inventory_font"
-	local fonts = utils.getfontfamilies()
-	FontName = GetVariable("FontName") or DefaultFontName
-	FontSize = tonumber(GetVariable("FontSize")) or DefaultFontSize
-	
-	SetFontInfo()
-
-	--- Pull some state variables.
-	BackgroundColour = tonumber(GetVariable ("BackgroundColour")) or BackgroundColour
-	height = tonumber(GetVariable ("height")) or DefaultHeight
-	width = tonumber(GetVariable ("width")) or DefaultWidth
-
-	--- install the window movement handler, get back the window position.
-	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=DefaultX, y=DefaultY})
-
-	--- Setup the window
-	check(WindowCreate(win, 
-		windowinfo.window_left, windowinfo.window_top,
-		width, height,
-		windowinfo.window_mode,
-		windowinfo.window_flags,
-		BackgroundColour))
-	WindowShow(win, true)
-	
-	DrawWindow()
-
-end -- OnPluginInstall
-
-function OnPluginDisable ()
-	WindowShow( win, false )
-end -- OnPluginDisable
-
-function OnPluginClose ()
-	OnPluginDisable()
-	WindowDelete(win)
-end -- OnPluginClose
-
-function OnPluginEnable ()
-	WindowShow( win, true)
-
-end -- OnPluginEnable
-
-
-function OnPluginConnect ()
-	WindowShow( win, true)
-
-end -- function OnPluginConnect
-
-function OnPluginDisconnect ()
-
-end -- function OnPluginConnect
-
-function OnPluginListChanged ()
-	do_plugin_check_now ("abc1a0944ae4af7586ce88dc", "aard_repaint_buffer") -- check we have the repaint buffer plugin
-	do_plugin_check_now ("3e7dedbe37e44942dd46d264", "aard_GMCP_handler")    -- check we have GMCP plugin
-	do_plugin_check_now ("462b665ecb569efbf261422f", "aard_miniwindow_z_order_monitor") -- check we have z order plugin
-end
-
-function OnPluginSaveState ()
-	-- save window current location for next time  
-	movewindow.save_state (win)
-	SetVariable ("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
-	SetVariable ("BackgroundColour", BackgroundColour)
-	SetVariable ("width", width)
-	SetVariable ("height", height)
-	SetVariable ("FontName", FontName)
-	SetVariable ("FontSize", FontSize)
-end -- function OnPluginSaveState
 
 ]]>
 </script>
