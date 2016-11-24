@@ -105,9 +105,6 @@
   >
   </trigger>
   
-  
-  
-  
 </triggers>
 
 <aliases>
@@ -154,6 +151,8 @@ InvmonHolding = {}
 LEFT_MARGIN			= 10
 TOP_MARGIN			= 5
 TITLE_MARGIN		= 3
+QTY_CHARWIDTH		= 2
+FLAG_CHARWIDTH		= 5
 
 win = GetPluginID()
 
@@ -215,6 +214,7 @@ function FormattedInv()
 			if v.itemname == w.name and v.flags == w.flags then
 				w.quantity = w.quantity + 1
 				found = true
+				break
 			end
 		end
 		if not found then
@@ -311,6 +311,7 @@ function InventoryChange(name, line, wildcards, styles)
 			for i, v in pairs(InvmonHolding) do
 				if invChange.objectid == v.objectid then
 					table.insert(InvData, v)
+					break
 				end
 			end
 			InvmonHolding = {}
@@ -327,7 +328,6 @@ function ProcessItemInfoTag(name, line, wildcards, styles)
 		table.insert(InvmonHolding, ProcessInvitemTag(itemtag))
 		-- put it in a holding table first and allow the invmon trigger to add it into inventory
 	end
-	print("itemtag trigger complete")
 end -- ProcessItemInfoTag
 
 function PrintInventoryLine(item, top)
@@ -345,12 +345,12 @@ function PrintInventoryLine(item, top)
 	}
 	for i = 1, #item.flags do
 		local f = item.flags:sub(i,i)
-		WindowText(win, FontId, f, LEFT_MARGIN + FontWidth * (4 + i - 1) , top, 0, 0, 
+		WindowText(win, FontId, f, LEFT_MARGIN + FontWidth * (QTY_CHARWIDTH + i) , top, 0, 0, 
 			(flagColour[f] == nil) and AardRGB["@w"] or flagColour[f]) -- colour
 	end
 	
 	-- name
-	left = left + ColourText(win, item.name, LEFT_MARGIN + FontWidth * 10, top, 0, 0)
+	left = left + ColourText(win, item.name, LEFT_MARGIN + FontWidth * (QTY_CHARWIDTH + FLAG_CHARWIDTH + 2), top, 0, 0)
 	
 end -- PrintInventoryLine
 
@@ -377,14 +377,14 @@ function DrawWindow()
 	local inv = FormattedInv()
 	for i, v in ipairs(inv) do
 		top = TOP_MARGIN + (i-1) * LineHeight
-		left = LEFT_MARGIN * 2 + FontWidth * 10 + 
+		left = LEFT_MARGIN * 2 + FontWidth * (QTY_CHARWIDTH + FLAG_CHARWIDTH + 2) + 
 				ColourTextWidth(win, v.name, false)
 		contentWidth = math.max(contentWidth, left)
 	end
 	
 	-- resize window
 	width = contentWidth
-	height = TOP_MARGIN * 2 + #inv * LineHeight + minTitleHeight
+	height = TOP_MARGIN * 2 + (2 + #inv) * LineHeight + minTitleHeight
 	
 	WindowDeleteAllHotspots(win)
 	
@@ -399,9 +399,15 @@ function DrawWindow()
 	WindowRectOp (win, 1, 0, 0, 0, 0, BorderColour, 15)
 	WindowRectOp (win, 1, 1, 1, -1, -1, 0x777777, 15)
 	
+	
+	-- draw table headers
+	WindowText(win, FontId, "Q  Flags Name", LEFT_MARGIN, TOP_MARGIN + minTitleHeight, 0, 0, AardRGB["@w"])
+	WindowText(win, FontId, "== ===== =========================", 
+				LEFT_MARGIN, TOP_MARGIN + LineHeight + minTitleHeight, 0, 0, AardRGB["@w"])
+	
 	-- add content to window
 	for i, v in ipairs(inv) do
-		top = minTitleHeight + TOP_MARGIN + (i-1) * LineHeight
+		top = minTitleHeight + TOP_MARGIN + (i+1) * LineHeight
 		PrintInventoryLine(v, top)
 	end 
 
@@ -544,16 +550,31 @@ end -- OnPluginInstall
 function OnPluginDisable ()
 	WindowShow(win, false)
 	IsShown = false
+	
+	-- disable inventory tagging
+	world.SendNoEcho("tags inv off")
+	world.SendNoEcho("invmon off")
+	
 end -- OnPluginDisable
 
 function OnPluginClose ()
 	OnPluginDisable()
 	WindowDelete(win)
+	
+	-- disable inventory tagging
+	world.SendNoEcho("tags inv off")
+	world.SendNoEcho("invmon off")
+	
 end -- OnPluginClose
 
 function OnPluginEnable ()
 	WindowShow(win, false)
 	IsShown = false
+	
+	
+	-- enable inventory tagging
+	world.SendNoEcho("tags inv on")
+	world.SendNoEcho("invmon on")
 end -- OnPluginEnable
 
 
@@ -579,8 +600,6 @@ function OnPluginSaveState ()
 	SetVariable ("FontName", FontName)
 	SetVariable ("FontSize", FontSize)
 end -- function OnPluginSaveState
-
-
 
 AardRGB = {
 	["@b"] = GetNormalColour(5),
