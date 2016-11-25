@@ -134,14 +134,9 @@ TitleColour			= 0xcab9ac
 TitleColourLight	= 0xf7ebdd
 TitleColourDark		= 0xb09784
 
-ScrollBarButtonColour	= 0x39bd00
-ScrollBarButtonLight	= 0x6ade37
-ScrollBarButtonDark		= 0x438d23
 TrackColor				= 0x257b00
 TrackBorder				= 0x257b00
-GripColor				= 0x39bd00
-GripColorLight			= 0x6ade37
-GripColorDark			= 0x438d23
+GripColor				= 0x596b5d
 
 BorderColour		= 0xcccccc
 FontColour			= 0xffffff
@@ -154,8 +149,11 @@ DefaultFontName		= "Consolas"
 IsShown				= false
 IsProcessed			= false
 
-InvData = {}
-InvmonHolding = {}
+InvData				= {}
+InvmonHolding		= {}
+InvDisplay			= {}
+
+ScrollItemIndex		= 1
 
 -- constants -- 
 LEFT_MARGIN			= 10
@@ -163,7 +161,7 @@ TOP_MARGIN			= 5
 TITLE_MARGIN		= 3
 QTY_CHARWIDTH		= 2
 FLAG_CHARWIDTH		= 5
-SCROLLBAR_WIDTH		= 16
+SCROLLBAR_WIDTH		= 8
 NUM_ITEMS_TO_SHOW	= 20
 
 win = GetPluginID()
@@ -322,7 +320,7 @@ function InventoryChange(name, line, wildcards, styles)
 			-- this covers all the other cases of moving item into inv
 			for i, v in pairs(InvmonHolding) do
 				if invChange.objectid == v.objectid then
-					table.insert(InvData, v)
+					table.insert(InvData, 1, v)
 					break
 				end
 			end
@@ -376,53 +374,77 @@ function DrawTitle()
 	
 end -- DrawTitle
 
-function DrawScrollBar(firstItemIndex)
+function DrawScrollBar(firstItemIndex, totalItems)
 	-- don't do anything if inv not processed
 	if IsProcessed then
-		local processedInv = ProcessInventory()
-		local numItems = #processedInv + 1 -- 1 blank line at the bottom
+	
+		local numItems = totalItems + 1 -- 1 blank line at the bottom
 		
-		if NUM_ITEMS_TO_SHOW > numItems then
+		if  NUM_ITEMS_TO_SHOW > numItems then
 			-- only build scroll bar if scroll needed
-			
 			local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 			
-			local contentWindowHeight = (2 + NUM_ITEMS_TO_SHOW) * LineHeight + TOP_MARGIN * 2 -- height of window excl title
+			local trackX = width - SCROLLBAR_WIDTH - 2
+			local trackY = minTitleHeight + 1
+			local trackX2 = width - 2	 -- 2 pix away from edge
+			local trackY2 = height - 2
 			
-			local TrackSize = contentWindowHeight - SCROLLBAR_WIDTH * 2 -- two square up and down buttons
+			local TrackLength = trackY2 - trackY - 2
+			local GripLength = math.floor(NUM_ITEMS_TO_SHOW / numItems * TrackLength)
 			
-			local GripLength = math.floor(NUM_ITEMS_TO_SHOW / numItems * TrackSize)
-			local GripPositionFromTop = math.floor((firstItemIndex - 1) / numItems * TrackSize)
+			local gripX = trackX + 1
+			local gripX2 = trackX2 -1
+			local gripY = math.floor((firstItemIndex - 1) / numItems * TrackLength) + trackY + 1
+			local gripY2 = math.min(gripY + TrackLength, trackY2 - 1)
 			
-			
-			-- place all the items
-			-- scroll up button
-			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, ScrollBarButtonColour)
-			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH,
-							ScrollBarButtonLight, ScrollBarButtonDark)
-			WindowText(win, FontId, "?", width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, "0x000000", true)
-			
-			-- scroll down button
-			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH, height - SCROLLBAR_WIDTH, width, height, ScrollBarButtonColour)
-			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH, height - SCROLLBAR_WIDTH, width, height, 
-							ScrollBarButtonLight, ScrollBarButtonDark) -- bottom
-			WindowText(win, FontId, "?", width - SCROLLBAR_WIDTH, minTitleHeight, width, minTitleHeight + SCROLLBAR_WIDTH, "0x000000", true)
-			
-			-- track
-			WindowCircleOp(win, 2, -- rectangle 
-							width - SCROLLBAR_WIDTH, minTitleHeight, width, height - SCROLLBAR_WIDTH, 
-							TrackBorder, 0, 1, -- pen color, style, width 
-							TrackColor, 10) -- brush color, style 
+			-- black out previous bar
+			WindowRectOp(win, 2, trackX, trackY, trackX2, trackY2, BackgroundColour)
 			
 			-- grip
-			WindowRectOp(win, 2, width - SCROLLBAR_WIDTH + 1, minTitleHeight + SCROLLBAR_WIDTH, width - 1, GripLength, GripColor)
-			WindowRectOp(win, 4, width - SCROLLBAR_WIDTH + 1, minTitleHeight + SCROLLBAR_WIDTH, width - 1, GripLength,
-							GripColorLight, GripColorDark) 
+			WindowCircleOp(win, miniwin.circle_round_rectangle, 
+							gripX, gripY, gripX2, gripY2, 
+							GripColor, 0, 0, -- pen color, style, width 
+							GripColor, miniwin.brush_coarse_pattern, -- brush color, style
+							5, 5)  -- roundedness
 			
 		end
 	end
 
 end -- DrawScrollBar
+
+function DrawContent(firstItemIndex)
+
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
+
+	-- black out old content
+	WindowRectOp(win, 2, 
+			LEFT_MARGIN, minTitleHeight + TOP_MARGIN, width - SCROLLBAR_WIDTH, height - TOP_MARGIN, BackgroundColour, 15)
+	
+	local subInv = {unpack(InvDisplay, firstItemIndex, firstItemIndex + NUM_ITEMS_TO_SHOW - 1)}
+	
+	DrawInventoryLines(subInv)
+	DrawScrollBar(firstItemIndex, #InvDisplay)
+
+end -- DrawContent
+
+function DrawInventoryLines(inv)
+
+	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
+	
+	-- draw table headers
+	WindowText(win, FontId, "Q  Flags Name", LEFT_MARGIN, TOP_MARGIN + minTitleHeight, 0, 0, AardRGB["@w"])
+	WindowText(win, FontId, "== ===== =========================", 
+				LEFT_MARGIN, TOP_MARGIN + LineHeight + minTitleHeight, 0, 0, AardRGB["@w"])
+	
+	-- add content to window
+	for i, v in ipairs(inv) do
+		top = minTitleHeight + TOP_MARGIN + (i+1) * LineHeight
+		PrintInventoryLine(v, top)
+	end 
+
+
+end -- DrawInventoryLines
+
 
 function DrawWindow()
 	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
@@ -430,8 +452,8 @@ function DrawWindow()
 	-- get window size
 	local contentHeight = TOP_MARGIN * 2
 	local contentWidth = DefaultWidth
-	local inv = FormattedInv()
-	for i, v in ipairs(inv) do
+	InvDisplay = FormattedInv()
+	for i, v in ipairs(InvDisplay) do
 		top = TOP_MARGIN + (i-1) * LineHeight
 		left = LEFT_MARGIN * 2 + FontWidth * (QTY_CHARWIDTH + FLAG_CHARWIDTH + 2) + 
 				ColourTextWidth(win, v.name, false)
@@ -439,7 +461,7 @@ function DrawWindow()
 	end
 	
 	-- resize window
-	width = contentWidth
+	width = contentWidth + SCROLLBAR_WIDTH
 	height = TOP_MARGIN * 2 + (2 + NUM_ITEMS_TO_SHOW) * LineHeight + minTitleHeight
 	
 	WindowDeleteAllHotspots(win)
@@ -455,32 +477,40 @@ function DrawWindow()
 	WindowRectOp(win, 1, 0, 0, 0, 0, BorderColour, 15)
 	WindowRectOp(win, 1, 1, 1, -1, -1, 0x777777, 15)
 	
+	-- reset scroll index
+	ScrollItemIndex = 1
+	DrawContent(ScrollItemIndex)
 	
-	-- draw table headers
-	WindowText(win, FontId, "Q  Flags Name", LEFT_MARGIN, TOP_MARGIN + minTitleHeight, 0, 0, AardRGB["@w"])
-	WindowText(win, FontId, "== ===== =========================", 
-				LEFT_MARGIN, TOP_MARGIN + LineHeight + minTitleHeight, 0, 0, AardRGB["@w"])
-	
-	-- add content to window
-	for i, v in ipairs(inv) do
-		top = minTitleHeight + TOP_MARGIN + (i+1) * LineHeight
-		PrintInventoryLine(v, top)
-	end 
-
 	CallPlugin("462b665ecb569efbf261422f", "registerMiniwindow", win) -- fail silently
 	
 	-- Add the drag handler so they can move the window around
 	movewindow.add_drag_handler (win, 1, 1, -1, minTitleHeight, 1) -- drag the title
 	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
+	WindowScrollwheelHandler(win, "RightClickHotSpot", "ScrollwheelMove")
 	BroadcastPlugin (999, "repaint")
 	
 	WindowShow(win, true)
 	IsShown = true
 end
 
-function Scroll(direction)
-	
-end -- Scroll
+function ScrollwheelMove(flags, hotspot_id)
+	print('scroll')
+	if bit.band (flags, 0x100) ~= 0 then
+		print('scrollup')
+		if ScrollItemIndex < #InvDisplay - NUM_ITEMS_TO_SHOW + 2 then
+			ScrollItemIndex = ScrollItemIndex + 1
+			DrawContent(ScrollItemIndex)
+		end
+	else
+		print('scrolldown')
+		if ScrollItemIndex > 1 then
+			ScrollItemIndex = ScrollItemIndex - 1
+			DrawContent(ScrollItemIndex)
+		end
+	end -- if
+	return 0 -- needed for some languages
+end -- wheel_move
+
 
 function ShowWindow()
 	world.SendNoEcho("invdata")
