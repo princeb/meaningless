@@ -310,10 +310,11 @@ function InventoryChange(name, line, wildcards, styles)
 		local invChange = ProcessInvmonTag(invmon)
 		if invChange.action == "2" or invChange.action == "3" or invChange.action == "6"
 			or invChange.action == "7" or invChange.action == "9" or invChange.action == "11" then
-			-- moved into inv from somewhere else
+			-- moved out of inv
 			for i, v in ipairs(InvData) do
 				if v.objectid == invChange.objectid then
 					table.remove(InvData, i)
+					break
 				end
 			end
 		else
@@ -343,7 +344,7 @@ end -- ProcessItemInfoTag
 function PrintInventoryLine(item, top)
 
 	-- quantity
-	WindowText(win, FontId, item.quantity, LEFT_MARGIN, top, 0, 0, AardRGB["@w"])
+	WindowText(win, FontId, item.quantity, LEFT_MARGIN + ((item.quantity < 10) and FontWidth or 0), top, 0, 0, AardRGB["@w"])
 	
 	-- flags
 	local flagColour = {
@@ -380,7 +381,7 @@ function DrawScrollBar(firstItemIndex, totalItems)
 	
 		local numItems = totalItems + 1 -- 1 blank line at the bottom
 		
-		if  NUM_ITEMS_TO_SHOW > numItems then
+		if  numItems > NUM_ITEMS_TO_SHOW then
 			-- only build scroll bar if scroll needed
 			local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 			
