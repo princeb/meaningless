@@ -332,8 +332,10 @@ function ProcessInventory(name, line, wildcards, styles)
 		EnableTrigger("InventoryLines", true)
 	elseif name == "InventoryEnd" then
 		EnableTrigger("InventoryLines", false)
-		--DrawWindow() -- captured all the info now draw window
-		print('processed')
+		if ThisPluginIsOpeningTheWindow then
+			DrawWindow()
+			ThisPluginIsOpeningTheWindow = false
+		end
 	elseif name == "InventoryLines" then
 		table.insert(InvData, ProcessInvitemTag(line))
 	end
@@ -345,6 +347,7 @@ function ProcessEquip(name, line, wildcards, styles)
 		EnableTrigger("EquipLines", true)
 	elseif name == "EquipEnd" then
 		EnableTrigger("EquipLines", false)
+		print(ThisPluginIsOpeningTheWindow)
 	elseif name == "EquipLines" then
 		AddToKnownItems(ProcessInvitemTag(line))
 	end
@@ -580,6 +583,7 @@ function ToggleWindow()
 		WindowShow(win, false)
 		IsShown = false
 	else
+		ThisPluginIsOpeningTheWindow = true
 		world.SendNoEcho("invdata")
 	end
 end -- ToggleWindow
