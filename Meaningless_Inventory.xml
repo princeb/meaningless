@@ -271,7 +271,6 @@ function FormattedInv()
 	return invtab
 end --FormattedInv
 
-
 function processColourText(text)
 	local textTable = {}
 	local colour = ""
@@ -347,7 +346,6 @@ function ProcessEquip(name, line, wildcards, styles)
 		EnableTrigger("EquipLines", true)
 	elseif name == "EquipEnd" then
 		EnableTrigger("EquipLines", false)
-		print(ThisPluginIsOpeningTheWindow)
 	elseif name == "EquipLines" then
 		AddToKnownItems(ProcessInvitemTag(line))
 	end
