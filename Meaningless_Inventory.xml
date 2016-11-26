@@ -63,6 +63,39 @@
   
   <trigger
    enabled="y"
+   match="{eqdata}"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipStart"
+   sequence="100"
+   group="EquipGroup"
+  >
+  </trigger>
+
+  <trigger
+   enabled="n"
+   match="*"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipLines"
+   sequence="200"
+   group="EquipGroup"
+  >
+  </trigger>
+  
+  <trigger
+   enabled="y"
+   match="{/eqdata}"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipEnd"
+   sequence="100"
+   group="EquipGroup"
+  >
+  </trigger>
+  
+  <trigger
+   enabled="y"
    match="^{invmon}.+"
    regexp="y"
    script="InventoryChange"
@@ -134,9 +167,9 @@ TitleColour			= 0xcab9ac
 TitleColourLight	= 0xf7ebdd
 TitleColourDark		= 0xb09784
 
-TrackColor				= 0x257b00
-TrackBorder				= 0x257b00
-GripColor				= 0x596b5d
+TrackColor			= 0x257b00
+TrackBorder			= 0x257b00
+GripColor			= 0x596b5d
 
 BorderColour		= 0xcccccc
 FontColour			= 0xffffff
@@ -148,12 +181,16 @@ DefaultFontSize		= 9
 DefaultFontName		= "Consolas"
 IsShown				= false
 IsProcessed			= false
+EqDataLoaded		= false
 
 InvData				= {}
 InvmonHolding		= {}
 InvDisplay			= {}
+KnownItems			= {}
 
 ScrollItemIndex		= 1
+ThisPluginIsOpeningTheWindow = false
+
 
 -- constants -- 
 LEFT_MARGIN			= 10
@@ -235,7 +272,6 @@ function FormattedInv()
 	return invtab
 end --FormattedInv
 
-
 function processColourText(text)
 	local textTable = {}
 	local colour = ""
@@ -296,11 +332,40 @@ function ProcessInventory(name, line, wildcards, styles)
 		EnableTrigger("InventoryLines", true)
 	elseif name == "InventoryEnd" then
 		EnableTrigger("InventoryLines", false)
-		DrawWindow() -- captured all the info now draw window
+		if ThisPluginIsOpeningTheWindow then
+			DrawWindow()
+			ThisPluginIsOpeningTheWindow = false
+		end
 	elseif name == "InventoryLines" then
 		table.insert(InvData, ProcessInvitemTag(line))
 	end
 end -- ProcessInventory
+
+
+function ProcessEquip(name, line, wildcards, styles)
+	if name == "EquipStart" then
+		EnableTrigger("EquipLines", true)
+	elseif name == "EquipEnd" then
+		EnableTrigger("EquipLines", false)
+		EqDataLoaded = true
+	elseif name == "EquipLines" then
+		AddToKnownItems(ProcessInvitemTag(line))
+	end
+end -- ProcessInventory
+
+
+function AddToKnownItems(invTagData)
+	local alreadyAdded = false
+	for i, v in ipairs(KnownItems) do
+		if invTagData.objectid == v.objectid then
+			alreadyAdded = true
+			break
+		end
+	end 
+	if not alreadyAdded then
+		table.insert(KnownItems, invTagData)
+	end
+end -- AddToKnownItems
 
 function InventoryChange(name, line, wildcards, styles)
 	-- don't do anything if inventory is not shown or prepared
@@ -317,12 +382,33 @@ function InventoryChange(name, line, wildcards, styles)
 					break
 				end
 			end
+			
+			-- destroyed, sold
+			if invChange.action == "3" or invChange.action == "7" then
+				for i, v in ipairs(KnownItems) do
+					if v.objectid == invChange.objectid then
+						table.remove(KnownItems, i)
+						break
+					end
+				end
+			end
+			
 		else
 			-- this covers all the other cases of moving item into inv
-			for i, v in pairs(InvmonHolding) do
+			local added = false
+			for i, v in ipairs(InvmonHolding) do
 				if invChange.objectid == v.objectid then
 					table.insert(InvData, 1, v)
+					added = true
 					break
+				end
+			end
+			if not added then
+				for i, v in ipairs(KnownItems) do
+					if invChange.objectid == v.objectid then
+						table.insert(InvData, 1, v)
+						break
+					end
 				end
 			end
 			InvmonHolding = {}
@@ -424,14 +510,6 @@ function DrawContent(firstItemIndex)
 	
 	local subInv = {unpack(InvDisplay, firstItemIndex, firstItemIndex + NUM_ITEMS_TO_SHOW - 1)}
 	
-	DrawInventoryLines(subInv)
-	DrawScrollBar(firstItemIndex, #InvDisplay)
-
-end -- DrawContent
-
-function DrawInventoryLines(inv)
-
-	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 	
 	-- draw table headers
 	WindowText(win, FontId, "Q  Flags Name", LEFT_MARGIN, TOP_MARGIN + minTitleHeight, 0, 0, AardRGB["@w"])
@@ -439,13 +517,14 @@ function DrawInventoryLines(inv)
 				LEFT_MARGIN, TOP_MARGIN + LineHeight + minTitleHeight, 0, 0, AardRGB["@w"])
 	
 	-- add content to window
-	for i, v in ipairs(inv) do
+	for i, v in ipairs(subInv) do
 		top = minTitleHeight + TOP_MARGIN + (i+1) * LineHeight
 		PrintInventoryLine(v, top)
 	end 
+	
+	DrawScrollBar(firstItemIndex, #InvDisplay)
 
-
-end -- DrawInventoryLines
+end -- DrawContent
 
 
 function DrawWindow()
@@ -490,10 +569,10 @@ function DrawWindow()
 	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
 	WindowScrollwheelHandler(win, "RightClickHotSpot", "ScrollwheelMove")
 	BroadcastPlugin (999, "repaint")
-	
 	WindowShow(win, true)
 	IsShown = true
-end
+
+end -- DrawWindow
 
 function ScrollwheelMove(flags, hotspot_id)
 	if bit.band (flags, 0x100) ~= 0 then
@@ -510,21 +589,18 @@ function ScrollwheelMove(flags, hotspot_id)
 	return 0 -- needed for some languages
 end -- wheel_move
 
-
-function ShowWindow()
-	world.SendNoEcho("invdata")
-end -- ShowWindow
-
-function HideWindow()
-	WindowShow(win, false)
-	IsShown = false
-end -- HideWindow
-
 function ToggleWindow()
-	if IsShown then
-		HideWindow()
+	if IsShown then	
+		WindowShow(win, false)
+		IsShown = false
+		return false
 	else
-		ShowWindow()
+		if not EqDataLoaded then
+			world.SendNoEcho("eqdata")
+		end
+		ThisPluginIsOpeningTheWindow = true
+		world.SendNoEcho("invdata")
+		return true
 	end
 end -- ToggleWindow
 
@@ -597,11 +673,6 @@ end -- SetFontInfo
 
 function OnPluginInstall ()
 
-	-- enable inventory tagging
-	world.SendNoEcho("tags inv on")
-	world.SendNoEcho("invmon on")
-	
-	
 	-- set up windows
 	WindowCreate (win, 600, 600, 1, 1, 0, 0, BackgroundColour) 
 
@@ -616,7 +687,7 @@ function OnPluginInstall ()
 	BackgroundColour = tonumber(GetVariable ("BackgroundColour")) or BackgroundColour
 	height = tonumber(GetVariable ("height")) or DefaultHeight
 	width = tonumber(GetVariable ("width")) or DefaultWidth
-
+	
 	--- install the window movement handler, get back the window position.
 	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=DefaultX, y=DefaultY})
 
@@ -627,17 +698,13 @@ function OnPluginInstall ()
 		windowinfo.window_mode,
 		windowinfo.window_flags,
 		BackgroundColour))
-		
+	
 	WindowShow(win, false)
-
 end -- OnPluginInstall
 
 function OnPluginDisable ()
-	WindowShow(win, false)
-	IsShown = false
-	
+	WindowShow(win, false)	
 	-- disable inventory tagging
-	world.SendNoEcho("tags inv off")
 	world.SendNoEcho("invmon off")
 	
 end -- OnPluginDisable
@@ -650,17 +717,20 @@ end -- OnPluginClose
 
 function OnPluginEnable ()
 	WindowShow(win, false)
-	IsShown = false
 	
 	-- enable inventory tagging
-	world.SendNoEcho("tags inv on")
+	world.SendNoEcho("eqdata")
 	world.SendNoEcho("invmon on")
 end -- OnPluginEnable
 
 
-function OnPluginConnect ()
+function OnPluginConnect()
 	WindowShow(win, false)
-	IsShown = false
+	
+	-- enable inventory tagging
+	world.SendNoEcho("invmon on")
+	world.SendNoEcho("eqdata")
+	
 end -- function OnPluginConnect
 
 function OnPluginDisconnect ()
@@ -675,10 +745,10 @@ end
 
 function OnPluginSaveState ()
 	-- save window current location for next time  
-	movewindow.save_state (win)
-	SetVariable ("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
-	SetVariable ("FontName", FontName)
-	SetVariable ("FontSize", FontSize)
+	movewindow.save_state(win)
+	SetVariable("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
+	SetVariable("FontName", FontName)
+	SetVariable("FontSize", FontSize)
 end -- function OnPluginSaveState
 
 AardRGB = {
