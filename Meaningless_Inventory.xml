@@ -63,6 +63,39 @@
   
   <trigger
    enabled="y"
+   match="{eqdata}"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipStart"
+   sequence="100"
+   group="EquipGroup"
+  >
+  </trigger>
+
+  <trigger
+   enabled="n"
+   match="*"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipLines"
+   sequence="200"
+   group="EquipGroup"
+  >
+  </trigger>
+  
+  <trigger
+   enabled="y"
+   match="{/eqdata}"
+   script="ProcessEquip"
+   omit_from_output="y"
+   name="EquipEnd"
+   sequence="100"
+   group="EquipGroup"
+  >
+  </trigger>
+  
+  <trigger
+   enabled="y"
    match="^{invmon}.+"
    regexp="y"
    script="InventoryChange"
@@ -134,9 +167,9 @@ TitleColour			= 0xcab9ac
 TitleColourLight	= 0xf7ebdd
 TitleColourDark		= 0xb09784
 
-TrackColor				= 0x257b00
-TrackBorder				= 0x257b00
-GripColor				= 0x596b5d
+TrackColor			= 0x257b00
+TrackBorder			= 0x257b00
+GripColor			= 0x596b5d
 
 BorderColour		= 0xcccccc
 FontColour			= 0xffffff
@@ -152,8 +185,11 @@ IsProcessed			= false
 InvData				= {}
 InvmonHolding		= {}
 InvDisplay			= {}
+KnownItems			= {}
 
 ScrollItemIndex		= 1
+ThisPluginIsOpeningTheWindow = false
+
 
 -- constants -- 
 LEFT_MARGIN			= 10
@@ -296,11 +332,37 @@ function ProcessInventory(name, line, wildcards, styles)
 		EnableTrigger("InventoryLines", true)
 	elseif name == "InventoryEnd" then
 		EnableTrigger("InventoryLines", false)
-		DrawWindow() -- captured all the info now draw window
+		--DrawWindow() -- captured all the info now draw window
+		print('processed')
 	elseif name == "InventoryLines" then
 		table.insert(InvData, ProcessInvitemTag(line))
 	end
 end -- ProcessInventory
+
+
+function ProcessEquip(name, line, wildcards, styles)
+	if name == "EquipStart" then
+		EnableTrigger("EquipLines", true)
+	elseif name == "EquipEnd" then
+		EnableTrigger("EquipLines", false)
+	elseif name == "EquipLines" then
+		AddToKnownItems(ProcessInvitemTag(line))
+	end
+end -- ProcessInventory
+
+
+function AddToKnownItems(invTagData)
+	local alreadyAdded = false
+	for i, v in ipairs(KnownItems) do
+		if invTagData.objectid == v.objectid then
+			alreadyAdded = true
+			break
+		end
+	end 
+	if not alreadyAdded then
+		table.insert(KnownItems, invTagData)
+	end
+end -- AddToKnownItems
 
 function InventoryChange(name, line, wildcards, styles)
 	-- don't do anything if inventory is not shown or prepared
@@ -319,10 +381,20 @@ function InventoryChange(name, line, wildcards, styles)
 			end
 		else
 			-- this covers all the other cases of moving item into inv
-			for i, v in pairs(InvmonHolding) do
+			local added = false
+			for i, v in ipairs(InvmonHolding) do
 				if invChange.objectid == v.objectid then
 					table.insert(InvData, 1, v)
+					added = true
 					break
+				end
+			end
+			if not added then
+				for i, v in ipairs(KnownItems) do
+					if invChange.objectid == v.objectid then
+						table.insert(InvData, 1, v)
+						break
+					end
 				end
 			end
 			InvmonHolding = {}
@@ -424,14 +496,6 @@ function DrawContent(firstItemIndex)
 	
 	local subInv = {unpack(InvDisplay, firstItemIndex, firstItemIndex + NUM_ITEMS_TO_SHOW - 1)}
 	
-	DrawInventoryLines(subInv)
-	DrawScrollBar(firstItemIndex, #InvDisplay)
-
-end -- DrawContent
-
-function DrawInventoryLines(inv)
-
-	local minTitleHeight = TITLE_MARGIN * 2 + LineHeight
 	
 	-- draw table headers
 	WindowText(win, FontId, "Q  Flags Name", LEFT_MARGIN, TOP_MARGIN + minTitleHeight, 0, 0, AardRGB["@w"])
@@ -439,13 +503,14 @@ function DrawInventoryLines(inv)
 				LEFT_MARGIN, TOP_MARGIN + LineHeight + minTitleHeight, 0, 0, AardRGB["@w"])
 	
 	-- add content to window
-	for i, v in ipairs(inv) do
+	for i, v in ipairs(subInv) do
 		top = minTitleHeight + TOP_MARGIN + (i+1) * LineHeight
 		PrintInventoryLine(v, top)
 	end 
+	
+	DrawScrollBar(firstItemIndex, #InvDisplay)
 
-
-end -- DrawInventoryLines
+end -- DrawContent
 
 
 function DrawWindow()
@@ -490,10 +555,10 @@ function DrawWindow()
 	AddMouseClickHotspot("RightClickHotSpot", 1, minTitleHeight + 1, width, height)
 	WindowScrollwheelHandler(win, "RightClickHotSpot", "ScrollwheelMove")
 	BroadcastPlugin (999, "repaint")
-	
 	WindowShow(win, true)
 	IsShown = true
-end
+
+end -- DrawWindow
 
 function ScrollwheelMove(flags, hotspot_id)
 	if bit.band (flags, 0x100) ~= 0 then
@@ -510,21 +575,12 @@ function ScrollwheelMove(flags, hotspot_id)
 	return 0 -- needed for some languages
 end -- wheel_move
 
-
-function ShowWindow()
-	world.SendNoEcho("invdata")
-end -- ShowWindow
-
-function HideWindow()
-	WindowShow(win, false)
-	IsShown = false
-end -- HideWindow
-
 function ToggleWindow()
-	if IsShown then
-		HideWindow()
+	if IsShown then	
+		WindowShow(win, false)
+		IsShown = false
 	else
-		ShowWindow()
+		world.SendNoEcho("invdata")
 	end
 end -- ToggleWindow
 
@@ -600,6 +656,7 @@ function OnPluginInstall ()
 	-- enable inventory tagging
 	world.SendNoEcho("tags inv on")
 	world.SendNoEcho("invmon on")
+	world.SendNoEcho("eqdata")
 	
 	
 	-- set up windows
