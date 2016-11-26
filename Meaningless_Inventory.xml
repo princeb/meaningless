@@ -181,6 +181,7 @@ DefaultFontSize		= 9
 DefaultFontName		= "Consolas"
 IsShown				= false
 IsProcessed			= false
+EqDataLoaded		= false
 
 InvData				= {}
 InvmonHolding		= {}
@@ -346,6 +347,7 @@ function ProcessEquip(name, line, wildcards, styles)
 		EnableTrigger("EquipLines", true)
 	elseif name == "EquipEnd" then
 		EnableTrigger("EquipLines", false)
+		EqDataLoaded = true
 	elseif name == "EquipLines" then
 		AddToKnownItems(ProcessInvitemTag(line))
 	end
@@ -380,6 +382,17 @@ function InventoryChange(name, line, wildcards, styles)
 					break
 				end
 			end
+			
+			-- destroyed, sold
+			if invChange.action == "3" or invChange.action == "7" then
+				for i, v in ipairs(KnownItems) do
+					if v.objectid == invChange.objectid then
+						table.remove(KnownItems, i)
+						break
+					end
+				end
+			end
+			
 		else
 			-- this covers all the other cases of moving item into inv
 			local added = false
@@ -582,6 +595,9 @@ function ToggleWindow()
 		IsShown = false
 		return false
 	else
+		if not EqDataLoaded then
+			world.SendNoEcho("eqdata")
+		end
 		ThisPluginIsOpeningTheWindow = true
 		world.SendNoEcho("invdata")
 		return true
@@ -657,11 +673,6 @@ end -- SetFontInfo
 
 function OnPluginInstall ()
 
-	-- enable inventory tagging
-	world.SendNoEcho("invmon on")
-	world.SendNoEcho("eqdata")
-	
-	
 	-- set up windows
 	WindowCreate (win, 600, 600, 1, 1, 0, 0, BackgroundColour) 
 
@@ -676,7 +687,7 @@ function OnPluginInstall ()
 	BackgroundColour = tonumber(GetVariable ("BackgroundColour")) or BackgroundColour
 	height = tonumber(GetVariable ("height")) or DefaultHeight
 	width = tonumber(GetVariable ("width")) or DefaultWidth
-
+	
 	--- install the window movement handler, get back the window position.
 	windowinfo = movewindow.install (win, miniwin.pos_top_right, miniwin.create_absolute_location, false, nil, {mouseup=MouseUp, mousedown=LeftClickOnly, dragmove=LeftClickOnly, dragrelease=LeftClickOnly},{x=DefaultX, y=DefaultY})
 
@@ -687,17 +698,13 @@ function OnPluginInstall ()
 		windowinfo.window_mode,
 		windowinfo.window_flags,
 		BackgroundColour))
-		
+	
 	WindowShow(win, false)
-
 end -- OnPluginInstall
 
 function OnPluginDisable ()
-	WindowShow(win, false)
-	IsShown = false
-	
+	WindowShow(win, false)	
 	-- disable inventory tagging
-	world.SendNoEcho("tags inv off")
 	world.SendNoEcho("invmon off")
 	
 end -- OnPluginDisable
@@ -710,17 +717,20 @@ end -- OnPluginClose
 
 function OnPluginEnable ()
 	WindowShow(win, false)
-	IsShown = false
 	
 	-- enable inventory tagging
-	world.SendNoEcho("tags inv on")
+	world.SendNoEcho("eqdata")
 	world.SendNoEcho("invmon on")
 end -- OnPluginEnable
 
 
-function OnPluginConnect ()
+function OnPluginConnect()
 	WindowShow(win, false)
-	IsShown = false
+	
+	-- enable inventory tagging
+	world.SendNoEcho("invmon on")
+	world.SendNoEcho("eqdata")
+	
 end -- function OnPluginConnect
 
 function OnPluginDisconnect ()
@@ -735,10 +745,10 @@ end
 
 function OnPluginSaveState ()
 	-- save window current location for next time  
-	movewindow.save_state (win)
-	SetVariable ("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
-	SetVariable ("FontName", FontName)
-	SetVariable ("FontSize", FontSize)
+	movewindow.save_state(win)
+	SetVariable("enabled", tostring (GetPluginInfo (GetPluginID (), 17)))
+	SetVariable("FontName", FontName)
+	SetVariable("FontSize", FontSize)
 end -- function OnPluginSaveState
 
 AardRGB = {
