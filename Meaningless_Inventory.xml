@@ -396,7 +396,7 @@ function DrawScrollBar(firstItemIndex, totalItems)
 			local gripX = trackX + 1
 			local gripX2 = trackX2 -1
 			local gripY = math.floor((firstItemIndex - 1) / numItems * TrackLength) + trackY + 1
-			local gripY2 = math.min(gripY + TrackLength, trackY2 - 1)
+			local gripY2 = math.min(gripY + GripLength, trackY2 - 1)
 			
 			-- black out previous bar
 			WindowRectOp(win, 2, trackX, trackY, trackX2, trackY2, BackgroundColour)
@@ -408,6 +408,7 @@ function DrawScrollBar(firstItemIndex, totalItems)
 							GripColor, miniwin.brush_coarse_pattern, -- brush color, style
 							5, 5)  -- roundedness
 			
+			BroadcastPlugin (999, "repaint")
 		end
 	end
 
@@ -495,15 +496,12 @@ function DrawWindow()
 end
 
 function ScrollwheelMove(flags, hotspot_id)
-	print('scroll')
 	if bit.band (flags, 0x100) ~= 0 then
-		print('scrollup')
 		if ScrollItemIndex < #InvDisplay - NUM_ITEMS_TO_SHOW + 2 then
 			ScrollItemIndex = ScrollItemIndex + 1
 			DrawContent(ScrollItemIndex)
 		end
 	else
-		print('scrolldown')
 		if ScrollItemIndex > 1 then
 			ScrollItemIndex = ScrollItemIndex - 1
 			DrawContent(ScrollItemIndex)
