@@ -181,7 +181,6 @@ DefaultFontSize		= 9
 DefaultFontName		= "Consolas"
 IsShown				= false
 IsProcessed			= false
-EqDataLoaded		= false
 
 InvData				= {}
 InvmonHolding		= {}
@@ -190,6 +189,7 @@ KnownItems			= {}
 
 ScrollItemIndex		= 1
 ThisPluginIsOpeningTheWindow = false
+InvmonOn			= false
 
 
 -- constants -- 
@@ -347,7 +347,7 @@ function ProcessEquip(name, line, wildcards, styles)
 		EnableTrigger("EquipLines", true)
 	elseif name == "EquipEnd" then
 		EnableTrigger("EquipLines", false)
-		EqDataLoaded = true
+		EqDataLoaded = true		
 	elseif name == "EquipLines" then
 		AddToKnownItems(ProcessInvitemTag(line))
 	end
@@ -598,6 +598,10 @@ function ToggleWindow()
 		if not EqDataLoaded then
 			world.SendNoEcho("eqdata")
 		end
+		if Not InvmonOn then
+			world.SendNoEcho("invmon on")
+			InvmonOn = true
+		end
 		ThisPluginIsOpeningTheWindow = true
 		world.SendNoEcho("invdata")
 		return true
@@ -700,13 +704,11 @@ function OnPluginInstall ()
 		BackgroundColour))
 	
 	WindowShow(win, false)
+	
 end -- OnPluginInstall
 
 function OnPluginDisable ()
-	WindowShow(win, false)	
-	-- disable inventory tagging
-	world.SendNoEcho("invmon off")
-	
+	WindowShow(win, false)
 end -- OnPluginDisable
 
 function OnPluginClose ()
@@ -718,18 +720,11 @@ end -- OnPluginClose
 function OnPluginEnable ()
 	WindowShow(win, false)
 	
-	-- enable inventory tagging
-	world.SendNoEcho("eqdata")
-	world.SendNoEcho("invmon on")
 end -- OnPluginEnable
 
 
 function OnPluginConnect()
 	WindowShow(win, false)
-	
-	-- enable inventory tagging
-	world.SendNoEcho("invmon on")
-	world.SendNoEcho("eqdata")
 	
 end -- function OnPluginConnect
 
