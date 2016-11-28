@@ -598,7 +598,7 @@ function ToggleWindow()
 		if not EqDataLoaded then
 			world.SendNoEcho("eqdata")
 		end
-		if Not InvmonOn then
+		if not InvmonOn then
 			world.SendNoEcho("invmon on")
 			InvmonOn = true
 		end
