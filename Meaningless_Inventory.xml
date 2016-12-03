@@ -62,7 +62,7 @@
   </trigger>
   
   <trigger
-   enabled="y"
+   enabled="n"
    match="{eqdata}"
    script="ProcessEquip"
    omit_from_output="y"
@@ -84,7 +84,7 @@
   </trigger>
   
   <trigger
-   enabled="y"
+   enabled="n"
    match="{/eqdata}"
    script="ProcessEquip"
    omit_from_output="y"
@@ -347,6 +347,8 @@ function ProcessEquip(name, line, wildcards, styles)
 		EnableTrigger("EquipLines", true)
 	elseif name == "EquipEnd" then
 		EnableTrigger("EquipLines", false)
+		EnableTrigger("EquipStart", false)
+		EnableTrigger("EquipEnd", false)
 		EqDataLoaded = true		
 	elseif name == "EquipLines" then
 		AddToKnownItems(ProcessInvitemTag(line))
@@ -596,6 +598,8 @@ function ToggleWindow()
 		return false
 	else
 		if not EqDataLoaded then
+			EnableTrigger("EquipStart", true)
+			EnableTrigger("EquipEnd", true)
 			world.SendNoEcho("eqdata")
 		end
 		if not InvmonOn then
