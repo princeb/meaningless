@@ -201,6 +201,7 @@ function BuildQuestInfo(questInfo)
 	
 	if questInfo.action == 'ready' or  questInfo.status == 'ready' then
 		table.insert(questInfoDisplay, {label="Q: ", info="You can now quest again.", colour=0xffffff})
+		world.FlashIcon()
 	elseif questInfo.action == 'start' or questInfo.timer ~= nil then
 		timeOfQuestEnd =  os.time() + questInfo.timer * 60
 		GenerateQuestTargetInfo(questInfo)
